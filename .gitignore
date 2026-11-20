@@ -1,0 +1,5 @@
+node_modules/
+.wrangler/
+deploy-mcp.js
+test/*.wav
+test/*.png
