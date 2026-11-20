@@ -74,6 +74,22 @@
     return ev;
   }
 
+  /* ---------- click (metronome) ---------- */
+  // clicks per bar and accent for each click: 2 = the ONE, 1 = secondary (beat 4 of 6/8), 0 = other beats
+  function clickGrid(p) {
+    const n = p.meter === '6/8' ? 6 : p.beats;
+    const acc = Array.from({ length: n }, (_, i) => i === 0 ? 2 : (p.meter === '6/8' && i === 3 ? 1 : 0));
+    return { n, acc };
+  }
+  const CLICK = [[1175, 0.30, 0.022], [1175, 0.42, 0.026], [1760, 0.60, 0.032]]; // [freq, amp, decay] by accent
+  function clickWave(sr, a) {
+    const [f, amp, dec] = CLICK[a]; const n = Math.round(sr * 0.09); const d = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const t = i / sr; const env = Math.min(1, t / 0.0008) * Math.exp(-t / dec); d[i] = amp * env * (Math.sin(2 * Math.PI * f * t) * 0.8 + Math.sin(2 * Math.PI * f * 2.01 * t) * 0.2); }
+    return d;
+  }
+  const DRUM_LEAD = 0.0085; // s, measured: DynamicsCompressor look-ahead (~6 ms) + ~4 ms kept before each sample's attack
+  const dbToGain = (db) => (db == null || db === -Infinity) ? 0 : Math.pow(10, db / 20);
+
   /* ---------- engine ---------- */
   function Engine() { this.ctx = null; this.kit = null; this.ir = null; this.cache = new WeakMap(); this.loop = null; this.onBeat = null; }
   Engine.prototype.ensure = function () {
@@ -81,8 +97,26 @@
       const AC = root.AudioContext || root.webkitAudioContext;
       try { this.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { this.ctx = new AC(); }
     }
-    if (this.kit && !this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    if (!this.bus) { this.bus = this.makeBus(this.ctx); this.setLevels({}); }
+    if (this.kit && !this.chain) this.chain = this.buildChain(this.ctx, this.bus.drums);
     return this.ctx;
+  };
+  // separate live gains for the guitar take, the drums and the click, then a gentle safety limiter
+  Engine.prototype.makeBus = function (ctx) {
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
+    lim.connect(ctx.destination);
+    const g = (v) => { const n = ctx.createGain(); n.gain.value = v; n.connect(lim); return n; };
+    const bus = { lim, guitar: g(1), drums: g(1), click: g(0) };
+    this.clickBufs = [0, 1, 2].map(a => { const d = clickWave(ctx.sampleRate, a); const b = ctx.createBuffer(1, d.length, ctx.sampleRate); b.getChannelData(0).set(d); return b; });
+    return bus;
+  };
+  // levels in dB (-Infinity = off); applied live with a short ramp
+  Engine.prototype.setLevels = function (lv) {
+    this.levels = Object.assign(this.levels || { guitar: 0, drums: 0, click: -Infinity }, lv);
+    if (!this.bus) return;
+    const now = this.ctx.currentTime;
+    for (const k of ['guitar', 'drums', 'click']) { const prm = this.bus[k].gain; const v = dbToGain(this.levels[k]); try { prm.cancelScheduledValues(now); prm.setTargetAtTime(v, now, 0.015); } catch (e) { prm.value = v; } }
   };
   // Load + decode the sample kit. Tries an OfflineAudioContext first (works before any tap);
   // if that is unavailable or fails, decodes again on the realtime context (called from a tap).
@@ -110,7 +144,7 @@
       const ctx = this.ensure(true);
       this.kit = await decodeKit(this.json, ctx, onProgress); this.ir = makeIR(this.kit.sr);
     }
-    if (!this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    if (!this.chain) this.chain = this.buildChain(this.ctx, this.bus.drums);
     return this.kit;
   };
   Engine.prototype.buffersFor = function (ctx) {
@@ -143,6 +177,7 @@
     return { ctx, out, chans, bufs, rr: {}, lastOpen: null };
   };
   Engine.prototype.hit = function (chain, v, when, vel, beatDur) {
+    when -= DRUM_LEAD; // the compressor's look-ahead plus the sample's pre-attack: fire early so the attack lands on the grid
     const ctx = chain.ctx; const layers = chain.bufs[v]; if (!layers) return null;
     const L = layers.length; const li = Math.max(0, Math.min(L - 1, Math.floor(Math.pow(Math.min(1, vel), 1.5) * L)));
     const arr = layers[li];
@@ -195,13 +230,20 @@
           const when = L.next + (ev.step - lo) * stepDur + dt;
           L.srcs.push({ s: this.hit(this.chain, ev.v, when, vel, ev.dur ? ev.dur * stepDur : 0), t: when });
         }
-        L.beats.push({ t: L.next, beat: L.beat, bar: L.bar });
+        // click: every beat (every eighth in 6/8), always scheduled on the same clock; the click gain gates it
+        const cg = clickGrid(L.p), per = cg.n / L.p.beats, cd = L.p.sub * stepDur / per;
+        for (let k = 0; k < per; k++) {
+          const ci = L.beat * per + k, when = L.next + k * cd;
+          if (this.clickBufs) { const cs = this.ctx.createBufferSource(); cs.buffer = this.clickBufs[cg.acc[ci]]; cs.connect(this.bus.click); cs.start(when); L.srcs.push({ s: cs, t: when }); }
+          L.beats.push({ t: when, beat: L.beat, bar: L.bar, count: ci, n: cg.n });
+        }
         L.next += L.p.sub * stepDur;
         L.beat++; if (L.beat >= L.p.beats) { L.beat = 0; L.bar++; }
       }
       const now = ctx.currentTime;
       if (L.srcs.length > 64) L.srcs = L.srcs.filter(x => x.t > now - 3);
-      while (L.beats.length && L.beats[0].t <= now) { const b = L.beats.shift(); if (this.onBeat) this.onBeat(b); }
+      const lat = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
+      while (L.beats.length && L.beats[0].t <= now - lat) { const b = L.beats.shift(); if (this.onBeat) this.onBeat(b); }
     };
     tick();
     L.timer = setInterval(tick, 25);
@@ -215,50 +257,81 @@
     this.loop = null;
   };
 
-  // ---- offline preview: guitar (already warped) + drums ----
-  // guitar: Float32Array at gsr; lead: seconds before first downbeat in guitar; totalSec; p, bpm
+  // ---- offline preview: guitar (already warped) + drums + click, kept as separate stems ----
+  // guitar: Float32Array at gsr; lead: seconds before first downbeat in guitar; drumSec: whole bars
+  // Returns { drums: stereo AudioBuffer, guitar: mono AudioBuffer, click: mono AudioBuffer, dur, grid }.
+  // All three start at sample 0, so playing them from one start time keeps them sample-locked.
   Engine.prototype.renderPreview = function (guitar, gsr, lead, drumSec, p, bpm, mix) {
-    this.ensure();
-    const sr = this.ctx.sampleRate; const tail = 0.9;
-    const len = Math.ceil((lead + drumSec + tail) * sr);
+    this.ensure(); mix = mix || {};
+    const sr = this.ctx.sampleRate; const tail = 0.9; const dur = lead + drumSec + tail;
+    const len = Math.ceil(dur * sr);
     const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext;
     const off = new OAC(2, len, sr);
     const master = off.createGain(); master.connect(off.destination);
     const fadeAt = lead + drumSec + 0.1; if (!mix.loop) { master.gain.setValueAtTime(1, fadeAt); master.gain.linearRampToValueAtTime(0, fadeAt + tail - 0.15); }
-    const drumBus = off.createGain(); drumBus.gain.value = mix.drums; drumBus.connect(master);
+    const drumBus = off.createGain(); drumBus.gain.value = mix.drums == null ? 0.9 : mix.drums; drumBus.connect(master);
     const chain = this.buildChain(off, drumBus);
     const stepDur = 60 / bpm / p.sub; const barDur = stepDur * p.stepsPerBar; const nBars = Math.round(drumSec / barDur);
     this.scheduleBars(chain, p, bpm, lead, nBars, { fills: false, crashOnOne: true, seed: 3 });
+    const fold = (d, rate) => { // fold the ring-out back onto the top so the loop is seamless
+      const a = Math.round(lead * rate), L = Math.round(drumSec * rate);
+      for (let j = a + L; j < d.length; j++) { d[j - L] += d[j]; d[j] = 0; }
+    };
+    const fade = (d, rate) => { const i0 = Math.round(fadeAt * rate), n = Math.round((tail - 0.15) * rate); for (let i = i0; i < d.length; i++) d[i] *= Math.max(0, 1 - (i - i0) / n); };
+    // guitar stem (no rendering needed)
+    const gl = Math.ceil(dur * gsr); const gd = new Float32Array(gl);
     if (guitar) {
       let pk = 0; for (let i = 0; i < guitar.length; i++) pk = Math.max(pk, Math.abs(guitar[i]));
-      const gb = off.createBuffer(1, guitar.length, gsr); gb.getChannelData(0).set(guitar);
-      const gs = off.createBufferSource(); gs.buffer = gb; const gg = off.createGain(); gg.gain.value = mix.guitar * (pk > 0 ? 0.6 / pk : 1);
-      gs.connect(gg); gg.connect(master); gs.start(0);
+      const g = (mix.guitar == null ? 1 : mix.guitar) * (pk > 0 ? 0.6 / pk : 1);
+      for (let i = 0; i < gl && i < guitar.length; i++) gd[i] = guitar[i] * g;
+      if (mix.loop) fold(gd, gsr); else fade(gd, gsr);
     }
+    // click stem: exactly on the drum grid (every beat; every eighth in 6/8), ONE accented
+    const cg = clickGrid(p); const cint = barDur / cg.n; const cd = new Float32Array(len); const waves = [0, 1, 2].map(a => clickWave(sr, a));
+    for (let k = 0; k < nBars * cg.n; k++) { const w = waves[cg.acc[k % cg.n]]; const i0 = Math.round((lead + k * cint) * sr); for (let i = 0; i < w.length && i0 + i < len; i++) cd[i0 + i] += w[i]; }
+    if (mix.loop) fold(cd, sr);
+    const grid = { lead, cint, n: cg.n, acc: cg.acc, loop: mix.loop ? { start: lead, end: lead + drumSec } : null };
     const done = off.startRendering();
     const finish = (buf) => {
-      if (mix.loop) { // fold the ring-out back onto the top so the loop is seamless
-        const a = Math.round(lead * sr), L = Math.round(drumSec * sr);
-        for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let j = a + L; j < d.length; j++) { d[j - L] += d[j]; d[j] = 0; } }
-      }
-      let pk = 0; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); }
-      if (pk > 0.97) { const g = 0.97 / pk; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= g; } }
-      return buf;
+      if (mix.loop) for (let c = 0; c < buf.numberOfChannels; c++) fold(buf.getChannelData(c), sr);
+      // keep the default (0 dB / 0 dB) mix under the limiter: scale drums + guitar together if the sum would peak
+      let pk = 0; const L = buf.getChannelData(0), R = buf.getChannelData(buf.numberOfChannels - 1), ratio = gsr / sr;
+      for (let i = 0; i < len; i++) { const gi = Math.min(gl - 1, Math.round(i * ratio)); const gv = gd[gi] || 0; pk = Math.max(pk, Math.abs(L[i] + gv), Math.abs(R[i] + gv)); }
+      if (pk > 0.85) { const g = 0.85 / pk; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= g; } for (let i = 0; i < gl; i++) gd[i] *= g; }
+      const gb = this.ctx.createBuffer(1, gl, gsr); gb.getChannelData(0).set(gd);
+      const cb = this.ctx.createBuffer(1, len, sr); cb.getChannelData(0).set(cd);
+      return { drums: buf, guitar: gb, click: cb, dur: buf.duration, grid, duration: buf.duration };
     };
     if (done && done.then) return done.then(finish);
     return new Promise(res => { off.oncomplete = e => res(finish(e.renderedBuffer)); });
   };
-  Engine.prototype.playBuffer = function (buf, onEnd, loop) {
+  // play the stems together through the live guitar / drums / click gains
+  Engine.prototype.playBuffer = function (stems, onEnd, loop) {
     const ctx = this.ensure(); this.stopBuffer();
-    const s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination);
-    if (loop) { s.loop = true; s.loopStart = loop.start; s.loopEnd = loop.end; }
-    const t0 = ctx.currentTime + 0.03; s.start(t0);
+    if (stems.getChannelData) stems = { drums: stems, dur: stems.duration };
+    const t0 = ctx.currentTime + 0.05; const srcs = [];
+    for (const k of ['drums', 'guitar', 'click']) {
+      if (!stems[k]) continue;
+      const s = ctx.createBufferSource(); s.buffer = stems[k]; s.connect(this.bus[k]);
+      if (loop) { s.loop = true; s.loopStart = loop.start; s.loopEnd = loop.end; }
+      s.start(t0); srcs.push(s);
+    }
+    const s = srcs[0];
     s.onended = () => { if (this.cur && this.cur.s === s) { this.cur = null; if (onEnd) onEnd(); } };
-    this.cur = { s, t0, dur: buf.duration, loop };
+    this.cur = { s, srcs, t0, dur: stems.dur, loop, grid: stems.grid };
     return this.cur;
   };
-  Engine.prototype.stopBuffer = function () { if (this.cur) { const s = this.cur.s; this.cur = null; try { s.stop(); } catch (e) {} } };
+  Engine.prototype.stopBuffer = function () { if (this.cur) { const a = this.cur.srcs || [this.cur.s]; this.cur = null; for (const s of a) { try { s.stop(); } catch (e) {} } } };
+  // where the playhead is in the preview, as a click count (0 = the ONE), or -1 before the first beat
+  Engine.prototype.previewCount = function () {
+    const c = this.cur; if (!c || !c.grid) return -1;
+    const ctx = this.ctx; const lat = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
+    let pos = ctx.currentTime - lat - c.t0; const g = c.grid;
+    if (c.loop && pos > c.loop.end) pos = c.loop.start + (pos - c.loop.start) % (c.loop.end - c.loop.start);
+    if (pos < g.lead - 0.005) return -1;
+    return Math.floor((pos - g.lead + 0.005) / g.cint) % g.n;
+  };
 
-  const api = { Engine, barEvents, MIX, decodeKit };
+  const api = { Engine, barEvents, MIX, decodeKit, clickGrid, clickWave, dbToGain };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SDDrums = api;
 })(typeof self !== 'undefined' ? self : this);

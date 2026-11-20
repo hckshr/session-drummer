@@ -26,6 +26,16 @@ A web page that listens to you play guitar through your phone's mic and suggests
 
 "Start on" sets how far above the room's noise floor a note has to be (18 / 12 / 8 dB). It takes two note attacks within 1.6 s to start a take. Takes under 4 s of playing are thrown away and it keeps listening. If nothing is played for 2 minutes, it stops listening. Settings are saved on the device.
 
+## Mix and click (preview and loop)
+
+While **With my guitar** or **Loop drums** is playing, the panel at the bottom has:
+
+- **Guitar − / +** (preview only), **Drums − / +**, and **Click − / +**. Each tap is 3 dB. The range runs from Off up to +9 dB, and changes apply live without restarting playback. Guitar and Drums each have a **Mute** button. The click has an **On/Off** button and is off by default.
+- Levels are saved on the device (`localStorage` `sd-mix`). The same drum and click levels apply in loop mode.
+- The **click** plays on every beat of the groove's meter: 1-2-3-4 in 4/4, 1-2-3 in 3/4, and every eighth (1–6) in 6/8. The ONE is higher and louder, and beat 4 of 6/8 gets a lighter accent. In the preview, the click is rendered sample-exact on the same grid the guitar is snapped to. In loop mode, it is scheduled on the same clock as the drums.
+- A **beat counter** (1 2 3 4) lights the current beat, with the ONE outlined.
+- Drum hits fire about 8.5 ms early to cancel the compressor's look-ahead and each sample's pre-attack. This puts drum attacks on the grid, within the ±4 ms humanize.
+
 ## Drum sounds
 
 The kit is real recorded acoustic drums, not synthesis. The samples are trimmed, mono, 44.1 kHz MP3s (88 samples, about 650 KB total) that the Worker serves as `/kit.json`. The page decodes them in the browser.

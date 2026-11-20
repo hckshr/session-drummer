@@ -13,7 +13,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;-webkit-text-size-adjust:100%}
 body{padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px)}
-body.has-player{padding-bottom:calc(env(safe-area-inset-bottom) + 230px)}
+body.has-player{padding-bottom:calc(env(safe-area-inset-bottom) + 390px)}
 main{max-width:560px;margin:0 auto;padding:14px 16px}
 header{display:flex;align-items:baseline;justify-content:space-between;margin:6px 2px 14px}
 h1{font-size:20px;margin:0;letter-spacing:.3px;font-weight:700}
@@ -80,7 +80,10 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
 #player .name span{color:var(--mut);font-weight:500;font-size:13px}
 #player .close{background:none;border:0;color:var(--mut);font-size:26px;min-width:44px;min-height:40px}
 .dots{display:flex;gap:7px;margin:8px 0 6px}
-.dots i{flex:1;height:7px;border-radius:4px;background:#2a2e37;transition:background .05s}
+.dots i{flex:1;height:30px;border-radius:8px;background:#2a2e37;transition:background .05s;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800;font-size:15px;color:var(--mut);font-variant-numeric:tabular-nums}
+.dots i.one{color:var(--tx);box-shadow:inset 0 0 0 2px var(--acc2)}
+.dots i.on{color:#1a1307}
+.dots.many{gap:5px}.dots.many i{font-size:13px}
 .dots i.on{background:var(--acc)}
 .dots i.one.on{background:var(--acc2)}
 .prow{display:flex;align-items:center;gap:8px;justify-content:space-between}
@@ -103,6 +106,21 @@ details.set .seg button{padding:0 10px;font-size:14px}
 #status.st-armed i{background:var(--ok);animation:pulse 1.6s infinite}
 #status.st-rec i{background:var(--rec);animation:pulse 1s infinite}
 #status.st-busy i,#status.st-opening i{background:var(--acc)}
+
+#player.prev .loopOnly,#player.loop .prevOnly{display:none!important}
+#mixer{margin-top:8px;display:flex;flex-direction:column;gap:7px}
+.mrow{display:flex;align-items:center;gap:8px}
+.mrow .ml{width:52px;font-weight:700;font-size:14px}
+.mrow .btn.mb{min-width:54px;min-height:46px;font-size:24px;padding:0;line-height:1}
+.mrow .mv{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.mrow .mv i{display:block;width:100%;height:6px;border-radius:3px;background:#2a2e37;overflow:hidden}
+.mrow .mv b{display:block;height:100%;width:50%;background:var(--acc);border-radius:3px;transition:width .1s}
+.mrow .mv span{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.mrow .mute{min-width:58px;min-height:40px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--mut);font-size:13px;font-weight:700;touch-action:manipulation}
+.mrow .mute.on{background:#d9534f;border-color:#d9534f;color:#fff}
+.mrow .tog.on{background:var(--acc2);border-color:var(--acc2);color:#10141a}
+.mrow.off .mv b{background:#555b66}.mrow.off .mv span{color:var(--mut)}
+#pNote{margin:0}
 </style>
 </head>
 <body>
@@ -143,7 +161,6 @@ details.set .seg button{padding:0 10px;font-size:14px}
       <div class="row"><label>Feel</label>
         <div class="seg" id="segFeel"><button data-f="straight">Straight</button><button data-f="swing">Swung</button></div>
       </div>
-      <div class="row guitarOnly"><label>Mix</label><span class="tag">Guitar</span><input type="range" id="bal" min="0" max="100" value="50"><span class="tag">Drums</span></div>
       <div class="row guitarOnly"><label>Preview</label><div class="seg" id="segPrev"><button data-v="best">Best bars</button><button data-v="whole">Whole take</button></div></div>
       <div class="row guitarOnly" id="ploopRow"><label class="switch"><input type="checkbox" id="ploop" checked> Loop the best bars</label></div>
       <div class="row guitarOnly"><label class="switch"><input type="checkbox" id="snap" checked> Snap my playing to the drum grid</label></div>
@@ -169,13 +186,19 @@ details.set .seg button{padding:0 10px;font-size:14px}
 <div id="player"><div class="in">
   <div class="name"><div id="pName">—</div><button class="close" id="pClose" aria-label="Close">×</button></div>
   <div class="dots" id="pDots"></div>
-  <div class="prow">
+  <div class="prow loopOnly">
     <button class="btn" data-p="-5">−5</button><button class="btn" data-p="-1">−1</button>
     <div class="tval" id="pBpm">90</div>
     <button class="btn" data-p="1">+1</button><button class="btn" data-p="5">+5</button>
   </div>
+  <div id="mixer">
+    <div class="mrow prevOnly" data-ch="guitar"><span class="ml">Guitar</span><button class="btn mb" data-d="-1" aria-label="Guitar quieter">−</button><div class="mv"><i><b></b></i><span>0 dB</span></div><button class="btn mb" data-d="1" aria-label="Guitar louder">+</button><button class="mute" aria-label="Mute guitar">Mute</button></div>
+    <div class="mrow" data-ch="drums"><span class="ml">Drums</span><button class="btn mb" data-d="-1" aria-label="Drums quieter">−</button><div class="mv"><i><b></b></i><span>0 dB</span></div><button class="btn mb" data-d="1" aria-label="Drums louder">+</button><button class="mute" aria-label="Mute drums">Mute</button></div>
+    <div class="mrow" data-ch="click"><span class="ml">Click</span><button class="btn mb" data-d="-1" aria-label="Click quieter">−</button><div class="mv"><i><b></b></i><span>0 dB</span></div><button class="btn mb" data-d="1" aria-label="Click louder">+</button><button class="mute tog" id="clickTog" aria-label="Click on or off">Off</button></div>
+  </div>
   <div class="prow" style="margin-top:10px">
-    <label class="switch"><input type="checkbox" id="pFills"> Fill every 4 bars</label>
+    <label class="switch loopOnly"><input type="checkbox" id="pFills"> Fill every 4 bars</label>
+    <span class="conf prevOnly" id="pNote">Changes apply while it plays.</span>
     <button class="btn pri" id="pplay">Stop</button>
   </div>
 </div></div>
@@ -895,6 +918,22 @@ details.set .seg button{padding:0 10px;font-size:14px}
     return ev;
   }
 
+  /* ---------- click (metronome) ---------- */
+  // clicks per bar and accent for each click: 2 = the ONE, 1 = secondary (beat 4 of 6/8), 0 = other beats
+  function clickGrid(p) {
+    const n = p.meter === '6/8' ? 6 : p.beats;
+    const acc = Array.from({ length: n }, (_, i) => i === 0 ? 2 : (p.meter === '6/8' && i === 3 ? 1 : 0));
+    return { n, acc };
+  }
+  const CLICK = [[1175, 0.30, 0.022], [1175, 0.42, 0.026], [1760, 0.60, 0.032]]; // [freq, amp, decay] by accent
+  function clickWave(sr, a) {
+    const [f, amp, dec] = CLICK[a]; const n = Math.round(sr * 0.09); const d = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const t = i / sr; const env = Math.min(1, t / 0.0008) * Math.exp(-t / dec); d[i] = amp * env * (Math.sin(2 * Math.PI * f * t) * 0.8 + Math.sin(2 * Math.PI * f * 2.01 * t) * 0.2); }
+    return d;
+  }
+  const DRUM_LEAD = 0.0085; // s, measured: DynamicsCompressor look-ahead (~6 ms) + ~4 ms kept before each sample's attack
+  const dbToGain = (db) => (db == null || db === -Infinity) ? 0 : Math.pow(10, db / 20);
+
   /* ---------- engine ---------- */
   function Engine() { this.ctx = null; this.kit = null; this.ir = null; this.cache = new WeakMap(); this.loop = null; this.onBeat = null; }
   Engine.prototype.ensure = function () {
@@ -902,8 +941,26 @@ details.set .seg button{padding:0 10px;font-size:14px}
       const AC = root.AudioContext || root.webkitAudioContext;
       try { this.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { this.ctx = new AC(); }
     }
-    if (this.kit && !this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    if (!this.bus) { this.bus = this.makeBus(this.ctx); this.setLevels({}); }
+    if (this.kit && !this.chain) this.chain = this.buildChain(this.ctx, this.bus.drums);
     return this.ctx;
+  };
+  // separate live gains for the guitar take, the drums and the click, then a gentle safety limiter
+  Engine.prototype.makeBus = function (ctx) {
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
+    lim.connect(ctx.destination);
+    const g = (v) => { const n = ctx.createGain(); n.gain.value = v; n.connect(lim); return n; };
+    const bus = { lim, guitar: g(1), drums: g(1), click: g(0) };
+    this.clickBufs = [0, 1, 2].map(a => { const d = clickWave(ctx.sampleRate, a); const b = ctx.createBuffer(1, d.length, ctx.sampleRate); b.getChannelData(0).set(d); return b; });
+    return bus;
+  };
+  // levels in dB (-Infinity = off); applied live with a short ramp
+  Engine.prototype.setLevels = function (lv) {
+    this.levels = Object.assign(this.levels || { guitar: 0, drums: 0, click: -Infinity }, lv);
+    if (!this.bus) return;
+    const now = this.ctx.currentTime;
+    for (const k of ['guitar', 'drums', 'click']) { const prm = this.bus[k].gain; const v = dbToGain(this.levels[k]); try { prm.cancelScheduledValues(now); prm.setTargetAtTime(v, now, 0.015); } catch (e) { prm.value = v; } }
   };
   // Load + decode the sample kit. Tries an OfflineAudioContext first (works before any tap);
   // if that is unavailable or fails, decodes again on the realtime context (called from a tap).
@@ -931,7 +988,7 @@ details.set .seg button{padding:0 10px;font-size:14px}
       const ctx = this.ensure(true);
       this.kit = await decodeKit(this.json, ctx, onProgress); this.ir = makeIR(this.kit.sr);
     }
-    if (!this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    if (!this.chain) this.chain = this.buildChain(this.ctx, this.bus.drums);
     return this.kit;
   };
   Engine.prototype.buffersFor = function (ctx) {
@@ -964,6 +1021,7 @@ details.set .seg button{padding:0 10px;font-size:14px}
     return { ctx, out, chans, bufs, rr: {}, lastOpen: null };
   };
   Engine.prototype.hit = function (chain, v, when, vel, beatDur) {
+    when -= DRUM_LEAD; // the compressor's look-ahead plus the sample's pre-attack: fire early so the attack lands on the grid
     const ctx = chain.ctx; const layers = chain.bufs[v]; if (!layers) return null;
     const L = layers.length; const li = Math.max(0, Math.min(L - 1, Math.floor(Math.pow(Math.min(1, vel), 1.5) * L)));
     const arr = layers[li];
@@ -1016,13 +1074,20 @@ details.set .seg button{padding:0 10px;font-size:14px}
           const when = L.next + (ev.step - lo) * stepDur + dt;
           L.srcs.push({ s: this.hit(this.chain, ev.v, when, vel, ev.dur ? ev.dur * stepDur : 0), t: when });
         }
-        L.beats.push({ t: L.next, beat: L.beat, bar: L.bar });
+        // click: every beat (every eighth in 6/8), always scheduled on the same clock; the click gain gates it
+        const cg = clickGrid(L.p), per = cg.n / L.p.beats, cd = L.p.sub * stepDur / per;
+        for (let k = 0; k < per; k++) {
+          const ci = L.beat * per + k, when = L.next + k * cd;
+          if (this.clickBufs) { const cs = this.ctx.createBufferSource(); cs.buffer = this.clickBufs[cg.acc[ci]]; cs.connect(this.bus.click); cs.start(when); L.srcs.push({ s: cs, t: when }); }
+          L.beats.push({ t: when, beat: L.beat, bar: L.bar, count: ci, n: cg.n });
+        }
         L.next += L.p.sub * stepDur;
         L.beat++; if (L.beat >= L.p.beats) { L.beat = 0; L.bar++; }
       }
       const now = ctx.currentTime;
       if (L.srcs.length > 64) L.srcs = L.srcs.filter(x => x.t > now - 3);
-      while (L.beats.length && L.beats[0].t <= now) { const b = L.beats.shift(); if (this.onBeat) this.onBeat(b); }
+      const lat = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
+      while (L.beats.length && L.beats[0].t <= now - lat) { const b = L.beats.shift(); if (this.onBeat) this.onBeat(b); }
     };
     tick();
     L.timer = setInterval(tick, 25);
@@ -1036,51 +1101,82 @@ details.set .seg button{padding:0 10px;font-size:14px}
     this.loop = null;
   };
 
-  // ---- offline preview: guitar (already warped) + drums ----
-  // guitar: Float32Array at gsr; lead: seconds before first downbeat in guitar; totalSec; p, bpm
+  // ---- offline preview: guitar (already warped) + drums + click, kept as separate stems ----
+  // guitar: Float32Array at gsr; lead: seconds before first downbeat in guitar; drumSec: whole bars
+  // Returns { drums: stereo AudioBuffer, guitar: mono AudioBuffer, click: mono AudioBuffer, dur, grid }.
+  // All three start at sample 0, so playing them from one start time keeps them sample-locked.
   Engine.prototype.renderPreview = function (guitar, gsr, lead, drumSec, p, bpm, mix) {
-    this.ensure();
-    const sr = this.ctx.sampleRate; const tail = 0.9;
-    const len = Math.ceil((lead + drumSec + tail) * sr);
+    this.ensure(); mix = mix || {};
+    const sr = this.ctx.sampleRate; const tail = 0.9; const dur = lead + drumSec + tail;
+    const len = Math.ceil(dur * sr);
     const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext;
     const off = new OAC(2, len, sr);
     const master = off.createGain(); master.connect(off.destination);
     const fadeAt = lead + drumSec + 0.1; if (!mix.loop) { master.gain.setValueAtTime(1, fadeAt); master.gain.linearRampToValueAtTime(0, fadeAt + tail - 0.15); }
-    const drumBus = off.createGain(); drumBus.gain.value = mix.drums; drumBus.connect(master);
+    const drumBus = off.createGain(); drumBus.gain.value = mix.drums == null ? 0.9 : mix.drums; drumBus.connect(master);
     const chain = this.buildChain(off, drumBus);
     const stepDur = 60 / bpm / p.sub; const barDur = stepDur * p.stepsPerBar; const nBars = Math.round(drumSec / barDur);
     this.scheduleBars(chain, p, bpm, lead, nBars, { fills: false, crashOnOne: true, seed: 3 });
+    const fold = (d, rate) => { // fold the ring-out back onto the top so the loop is seamless
+      const a = Math.round(lead * rate), L = Math.round(drumSec * rate);
+      for (let j = a + L; j < d.length; j++) { d[j - L] += d[j]; d[j] = 0; }
+    };
+    const fade = (d, rate) => { const i0 = Math.round(fadeAt * rate), n = Math.round((tail - 0.15) * rate); for (let i = i0; i < d.length; i++) d[i] *= Math.max(0, 1 - (i - i0) / n); };
+    // guitar stem (no rendering needed)
+    const gl = Math.ceil(dur * gsr); const gd = new Float32Array(gl);
     if (guitar) {
       let pk = 0; for (let i = 0; i < guitar.length; i++) pk = Math.max(pk, Math.abs(guitar[i]));
-      const gb = off.createBuffer(1, guitar.length, gsr); gb.getChannelData(0).set(guitar);
-      const gs = off.createBufferSource(); gs.buffer = gb; const gg = off.createGain(); gg.gain.value = mix.guitar * (pk > 0 ? 0.6 / pk : 1);
-      gs.connect(gg); gg.connect(master); gs.start(0);
+      const g = (mix.guitar == null ? 1 : mix.guitar) * (pk > 0 ? 0.6 / pk : 1);
+      for (let i = 0; i < gl && i < guitar.length; i++) gd[i] = guitar[i] * g;
+      if (mix.loop) fold(gd, gsr); else fade(gd, gsr);
     }
+    // click stem: exactly on the drum grid (every beat; every eighth in 6/8), ONE accented
+    const cg = clickGrid(p); const cint = barDur / cg.n; const cd = new Float32Array(len); const waves = [0, 1, 2].map(a => clickWave(sr, a));
+    for (let k = 0; k < nBars * cg.n; k++) { const w = waves[cg.acc[k % cg.n]]; const i0 = Math.round((lead + k * cint) * sr); for (let i = 0; i < w.length && i0 + i < len; i++) cd[i0 + i] += w[i]; }
+    if (mix.loop) fold(cd, sr);
+    const grid = { lead, cint, n: cg.n, acc: cg.acc, loop: mix.loop ? { start: lead, end: lead + drumSec } : null };
     const done = off.startRendering();
     const finish = (buf) => {
-      if (mix.loop) { // fold the ring-out back onto the top so the loop is seamless
-        const a = Math.round(lead * sr), L = Math.round(drumSec * sr);
-        for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let j = a + L; j < d.length; j++) { d[j - L] += d[j]; d[j] = 0; } }
-      }
-      let pk = 0; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); }
-      if (pk > 0.97) { const g = 0.97 / pk; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= g; } }
-      return buf;
+      if (mix.loop) for (let c = 0; c < buf.numberOfChannels; c++) fold(buf.getChannelData(c), sr);
+      // keep the default (0 dB / 0 dB) mix under the limiter: scale drums + guitar together if the sum would peak
+      let pk = 0; const L = buf.getChannelData(0), R = buf.getChannelData(buf.numberOfChannels - 1), ratio = gsr / sr;
+      for (let i = 0; i < len; i++) { const gi = Math.min(gl - 1, Math.round(i * ratio)); const gv = gd[gi] || 0; pk = Math.max(pk, Math.abs(L[i] + gv), Math.abs(R[i] + gv)); }
+      if (pk > 0.85) { const g = 0.85 / pk; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= g; } for (let i = 0; i < gl; i++) gd[i] *= g; }
+      const gb = this.ctx.createBuffer(1, gl, gsr); gb.getChannelData(0).set(gd);
+      const cb = this.ctx.createBuffer(1, len, sr); cb.getChannelData(0).set(cd);
+      return { drums: buf, guitar: gb, click: cb, dur: buf.duration, grid, duration: buf.duration };
     };
     if (done && done.then) return done.then(finish);
     return new Promise(res => { off.oncomplete = e => res(finish(e.renderedBuffer)); });
   };
-  Engine.prototype.playBuffer = function (buf, onEnd, loop) {
+  // play the stems together through the live guitar / drums / click gains
+  Engine.prototype.playBuffer = function (stems, onEnd, loop) {
     const ctx = this.ensure(); this.stopBuffer();
-    const s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination);
-    if (loop) { s.loop = true; s.loopStart = loop.start; s.loopEnd = loop.end; }
-    const t0 = ctx.currentTime + 0.03; s.start(t0);
+    if (stems.getChannelData) stems = { drums: stems, dur: stems.duration };
+    const t0 = ctx.currentTime + 0.05; const srcs = [];
+    for (const k of ['drums', 'guitar', 'click']) {
+      if (!stems[k]) continue;
+      const s = ctx.createBufferSource(); s.buffer = stems[k]; s.connect(this.bus[k]);
+      if (loop) { s.loop = true; s.loopStart = loop.start; s.loopEnd = loop.end; }
+      s.start(t0); srcs.push(s);
+    }
+    const s = srcs[0];
     s.onended = () => { if (this.cur && this.cur.s === s) { this.cur = null; if (onEnd) onEnd(); } };
-    this.cur = { s, t0, dur: buf.duration, loop };
+    this.cur = { s, srcs, t0, dur: stems.dur, loop, grid: stems.grid };
     return this.cur;
   };
-  Engine.prototype.stopBuffer = function () { if (this.cur) { const s = this.cur.s; this.cur = null; try { s.stop(); } catch (e) {} } };
+  Engine.prototype.stopBuffer = function () { if (this.cur) { const a = this.cur.srcs || [this.cur.s]; this.cur = null; for (const s of a) { try { s.stop(); } catch (e) {} } } };
+  // where the playhead is in the preview, as a click count (0 = the ONE), or -1 before the first beat
+  Engine.prototype.previewCount = function () {
+    const c = this.cur; if (!c || !c.grid) return -1;
+    const ctx = this.ctx; const lat = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
+    let pos = ctx.currentTime - lat - c.t0; const g = c.grid;
+    if (c.loop && pos > c.loop.end) pos = c.loop.start + (pos - c.loop.start) % (c.loop.end - c.loop.start);
+    if (pos < g.lead - 0.005) return -1;
+    return Math.floor((pos - g.lead + 0.005) / g.cint) % g.n;
+  };
 
-  const api = { Engine, barEvents, MIX, decodeKit };
+  const api = { Engine, barEvents, MIX, decodeKit, clickGrid, clickWave, dbToGain };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SDDrums = api;
 })(typeof self !== 'undefined' ? self : this);
 
@@ -1329,6 +1425,7 @@ details.set .seg button{padding:0 10px;font-size:14px}
     setListen('off', `done listening · you played ${Math.round(ev.played)} s`);
     showResults();
   }
+  window.__sd.loadTake = (take, sr) => { stopAll(); analyzeTake(take, sr, { played: take.length / sr, reason: 'test' }); }; // test hook
   function manualMode() {
     stopAll(); warn('');
     st.manual = true; st.base = null; st.seed = 1; st.shown = [];
@@ -1420,7 +1517,36 @@ details.set .seg button{padding:0 10px;font-size:14px}
   }
 
   /* ---------- preview (guitar + drums) ---------- */
-  function mix() { const b = +$('bal').value; return { guitar: b <= 50 ? 1 : (100 - b) / 50, drums: (b >= 50 ? 1 : b / 50) * 0.9 }; }
+  /* ---------- mix: tap −/+ in 3 dB steps, live, remembered ---------- */
+  const MIN_DB = -24, MAX_DB = 9, STEP_DB = 3;
+  const mixSt = Object.assign({ guitar: 0, drums: 0, click: 0, guitarMute: false, drumsMute: false, clickOn: false }, (() => { try { return JSON.parse(localStorage.getItem('sd-mix') || '{}'); } catch (e) { return {}; } })());
+  for (const k of ['guitar', 'drums', 'click']) if (mixSt[k] === null || typeof mixSt[k] !== 'number') mixSt[k] = mixSt[k] === null ? -Infinity : 0; // JSON stores -Infinity as null
+  function effLevels() {
+    return { guitar: mixSt.guitarMute ? -Infinity : mixSt.guitar, drums: mixSt.drumsMute ? -Infinity : mixSt.drums, click: mixSt.clickOn ? mixSt.click : -Infinity };
+  }
+  function dbText(db) { return db === -Infinity ? 'Off' : (db > 0 ? '+' : db < 0 ? '−' : '') + Math.abs(db) + ' dB'; }
+  function renderMix() {
+    document.querySelectorAll('#mixer .mrow').forEach(r => {
+      const ch = r.dataset.ch, db = mixSt[ch];
+      const off = ch === 'click' ? !mixSt.clickOn : mixSt[ch + 'Mute'];
+      r.querySelector('.mv span').textContent = dbText(db) + (off && ch !== 'click' ? ' · muted' : '');
+      r.querySelector('.mv b').style.width = (db === -Infinity ? 0 : (db - MIN_DB + STEP_DB) / (MAX_DB - MIN_DB + STEP_DB) * 100) + '%';
+      r.classList.toggle('off', off || db === -Infinity);
+      const m = r.querySelector('.mute'); m.classList.toggle('on', ch === 'click' ? mixSt.clickOn : off);
+      if (ch === 'click') m.textContent = mixSt.clickOn ? 'On' : 'Off';
+      r.querySelector('[data-d="1"]').disabled = db >= MAX_DB; r.querySelector('[data-d="-1"]').disabled = db === -Infinity;
+    });
+  }
+  function applyMix() { eng.setLevels(effLevels()); renderMix(); try { localStorage.setItem('sd-mix', JSON.stringify(mixSt)); } catch (e) {} }
+  function nudge(ch, d) {
+    let db = mixSt[ch];
+    if (d > 0) db = db === -Infinity ? MIN_DB : Math.min(MAX_DB, db + STEP_DB);
+    else db = db <= MIN_DB ? -Infinity : db - STEP_DB;
+    mixSt[ch] = db;
+    if (ch === 'click' && d > 0) mixSt.clickOn = true; // turning the click up turns it on
+    else if (ch !== 'click' && d > 0) mixSt[ch + 'Mute'] = false;
+    applyMix();
+  }
   function planPreview(card) {
     const c = st.cur, gb = P.BEATS[c.meter], Pd = 60 / c.bpm, barDur = gb * Pd;
     const pbd = card.pattern.beats * card.pattern.bars * 60 / card.bpm;
@@ -1472,6 +1598,7 @@ details.set .seg button{padding:0 10px;font-size:14px}
     if (!st.playing) return;
     const el = cardEl(st.playing.id); if (el) { el.classList.remove('playing'); const b = el.querySelector('[data-prev]'); if (b) b.textContent = '▶ With my guitar'; }
     st.playing = null; eng.stopBuffer(); wake(false);
+    if (st.panel === 'prev') closePanel();
   }
   function preview(id) {
     if (st.playing && st.playing.id === id) { stopPreview(); return; }
@@ -1486,16 +1613,18 @@ details.set .seg button{padding:0 10px;font-size:14px}
         await eng.ready();
         if (!st.playing || st.playing.token !== token) return;
         const plan = planPreview(card);
-        const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, Object.assign(mix(), { loop: plan.loop }));
+        const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, { loop: plan.loop });
         if (!st.playing || st.playing.token !== token) return;
         await unlock(false);
         btn.textContent = '■ Stop';
         $('hSection').textContent = plan.whole ? `Playing your whole take, ${plan.bars} bars from ${fmt(plan.from)}.` : `Playing ${plan.bars} bars from ${fmt(plan.from)} of your take, the steadiest stretch${plan.loop ? ', on loop' : ''}.`;
         const cur = eng.playBuffer(buf, () => { if (st.playing && st.playing.token === token) stopPreview(); }, plan.loop ? { start: plan.lead, end: plan.lead + plan.drumSec } : null);
         wake(true);
-        const bar = el.querySelector('.prog i');
+        openPanel('prev', `${card.pattern.name} <span>with your guitar · ${tempoLabel(card)}</span>`, buf.grid.n);
+        const bar = el.querySelector('.prog i'); let lastCount = -2;
         const step = () => {
           if (!st.playing || st.playing.token !== token) { bar.style.width = '0'; return; }
+          const cnt = eng.previewCount(); if (cnt !== lastCount) { lastCount = cnt; litDot(cnt); }
           const el2 = eng.ctx.currentTime - cur.t0; bar.style.width = (cur.loop ? ((Math.max(0, el2 - cur.loop.start) % (cur.loop.end - cur.loop.start)) / (cur.loop.end - cur.loop.start)) * 100 : clamp(el2 / cur.dur * 100, 0, 100)) + '%';
           requestAnimationFrame(step);
         };
@@ -1505,16 +1634,25 @@ details.set .seg button{padding:0 10px;font-size:14px}
   }
 
   /* ---------- practice loop ---------- */
-  function renderDots(n) { $('pDots').innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i === 0 ? 'one' : ''}"></i>`).join(''); }
-  eng.onBeat = (b) => { const d = $('pDots').children; for (let i = 0; i < d.length; i++) d[i].classList.toggle('on', i === b.beat); };
+  // beat counter: 1 2 3 4 (1 2 3 in 3/4, 1–6 in 6/8), the ONE outlined, the current beat lit
+  function renderDots(n) { $('pDots').classList.toggle('many', n > 4); $('pDots').innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i === 0 ? 'one' : ''}">${i + 1}</i>`).join(''); }
+  function litDot(k) { const d = $('pDots').children; for (let i = 0; i < d.length; i++) d[i].classList.toggle('on', i === k); }
+  eng.onBeat = (b) => { if (st.panel === 'loop') litDot(b.count != null ? b.count : b.beat); };
+  function openPanel(mode, nameHTML, n) {
+    st.panel = mode; const pl = $('player');
+    pl.classList.toggle('prev', mode === 'prev'); pl.classList.toggle('loop', mode === 'loop');
+    $('pName').innerHTML = nameHTML; renderDots(n); renderMix();
+    if (mode === 'prev') $('pplay').textContent = 'Stop';
+    pl.classList.add('show'); document.body.classList.add('has-player');
+  }
+  function closePanel() { st.panel = null; litDot(-1); $('player').classList.remove('show'); document.body.classList.remove('has-player'); }
   function pTempoLabel() { const l = st.loop; $('pBpm').textContent = Math.round(l.bpm); }
   function openLoop(id) {
     stopAll(); unlock(false);
     const card = st.cards.find(c => c.id === id); if (!card) return;
     st.loop = { card, bpm: Math.round(card.bpm), running: false };
-    $('pName').innerHTML = `${card.pattern.name} <span>${card.pattern.meter === '6/8' ? '6/8 · ♩. per min' : card.pattern.meter + ' · BPM'}</span>`;
-    renderDots(card.pattern.beats); pTempoLabel();
-    $('player').classList.add('show'); document.body.classList.add('has-player');
+    openPanel('loop', `${card.pattern.name} <span>${card.pattern.meter === '6/8' ? '6/8 · ♩. per min' : card.pattern.meter + ' · BPM'}</span>`, D.clickGrid(card.pattern).n);
+    pTempoLabel();
     startLoop();
   }
   async function startLoop() {
@@ -1525,8 +1663,8 @@ details.set .seg button{padding:0 10px;font-size:14px}
     eng.startLoop(l.card.pattern, l.bpm, { fills: $('pFills').checked, crashFirst: false });
     l.running = true; $('pplay').textContent = 'Stop'; wake(true);
   }
-  function stopLoop() { eng.stopLoop(); if (st.loop) st.loop.running = false; $('pplay').textContent = 'Play'; const d = $('pDots').children; for (const x of d) x.classList.remove('on'); wake(false); }
-  function closeLoop() { stopLoop(); st.loop = null; $('player').classList.remove('show'); document.body.classList.remove('has-player'); }
+  function stopLoop() { eng.stopLoop(); if (st.loop) st.loop.running = false; $('pplay').textContent = 'Play'; litDot(-1); wake(false); }
+  function closeLoop() { stopLoop(); st.loop = null; closePanel(); }
   function stopAll() { stopPreview(); if (st.loop) closeLoop(); if (st.mic) { closeMic(); setListen('off'); } }
 
   /* ---------- wiring ---------- */
@@ -1551,7 +1689,6 @@ details.set .seg button{padding:0 10px;font-size:14px}
   $('segMeter').addEventListener('click', e => { const m = e.target.dataset && e.target.dataset.m; if (m && m !== st.cur.meter) applyChange({ meter: m }); });
   $('segFeel').addEventListener('click', e => { const f = e.target.dataset && e.target.dataset.f; if (f && f !== st.cur.feel) applyChange({ feel: f }); });
   $('snap').addEventListener('change', () => { stopPreview(); });
-  $('bal').addEventListener('change', () => { stopPreview(); });
   document.addEventListener('click', e => {
     const pv = e.target.closest('[data-prev]'); if (pv) { preview(pv.dataset.prev); return; }
     const lp = e.target.closest('[data-loop]'); if (lp) { openLoop(lp.dataset.loop); return; }
@@ -1559,8 +1696,14 @@ details.set .seg button{padding:0 10px;font-size:14px}
   document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
     const l = st.loop; if (!l) return; l.bpm = clamp(l.bpm + (+b.dataset.p), 30, 260); eng.setLoopTempo(l.bpm); pTempoLabel();
   }));
-  $('pplay').addEventListener('click', () => { if (!st.loop) return; if (st.loop.running) stopLoop(); else startLoop(); });
-  $('pClose').addEventListener('click', closeLoop);
+  $('pplay').addEventListener('click', () => { if (st.panel === 'prev') { stopPreview(); return; } if (!st.loop) return; if (st.loop.running) stopLoop(); else startLoop(); });
+  $('pClose').addEventListener('click', () => { if (st.panel === 'prev') stopPreview(); else closeLoop(); });
+  document.querySelectorAll('#mixer .mrow').forEach(r => {
+    const ch = r.dataset.ch;
+    r.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => nudge(ch, +b.dataset.d)));
+    r.querySelector('.mute').addEventListener('click', () => { if (ch === 'click') { mixSt.clickOn = !mixSt.clickOn; if (mixSt.clickOn && mixSt.click === -Infinity) mixSt.click = 0; } else { mixSt[ch + 'Mute'] = !mixSt[ch + 'Mute']; if (!mixSt[ch + 'Mute'] && mixSt[ch] === -Infinity) mixSt[ch] = 0; } applyMix(); });
+  });
+  applyMix();
   $('pFills').addEventListener('change', () => { if (eng.loop) eng.loop.opts.fills = $('pFills').checked; });
   document.addEventListener('visibilitychange', () => { if (document.hidden && st.mic) { const ev = st.listen === 'rec' && st.mic.L.finish(); if (ev && ev.type === 'take') handleEvent(ev); else { closeMic(); setListen('off'); } } });
 })();

@@ -145,6 +145,7 @@
     setListen('off', `done listening · you played ${Math.round(ev.played)} s`);
     showResults();
   }
+  window.__sd.loadTake = (take, sr) => { stopAll(); analyzeTake(take, sr, { played: take.length / sr, reason: 'test' }); }; // test hook
   function manualMode() {
     stopAll(); warn('');
     st.manual = true; st.base = null; st.seed = 1; st.shown = [];
@@ -236,7 +237,36 @@
   }
 
   /* ---------- preview (guitar + drums) ---------- */
-  function mix() { const b = +$('bal').value; return { guitar: b <= 50 ? 1 : (100 - b) / 50, drums: (b >= 50 ? 1 : b / 50) * 0.9 }; }
+  /* ---------- mix: tap −/+ in 3 dB steps, live, remembered ---------- */
+  const MIN_DB = -24, MAX_DB = 9, STEP_DB = 3;
+  const mixSt = Object.assign({ guitar: 0, drums: 0, click: 0, guitarMute: false, drumsMute: false, clickOn: false }, (() => { try { return JSON.parse(localStorage.getItem('sd-mix') || '{}'); } catch (e) { return {}; } })());
+  for (const k of ['guitar', 'drums', 'click']) if (mixSt[k] === null || typeof mixSt[k] !== 'number') mixSt[k] = mixSt[k] === null ? -Infinity : 0; // JSON stores -Infinity as null
+  function effLevels() {
+    return { guitar: mixSt.guitarMute ? -Infinity : mixSt.guitar, drums: mixSt.drumsMute ? -Infinity : mixSt.drums, click: mixSt.clickOn ? mixSt.click : -Infinity };
+  }
+  function dbText(db) { return db === -Infinity ? 'Off' : (db > 0 ? '+' : db < 0 ? '−' : '') + Math.abs(db) + ' dB'; }
+  function renderMix() {
+    document.querySelectorAll('#mixer .mrow').forEach(r => {
+      const ch = r.dataset.ch, db = mixSt[ch];
+      const off = ch === 'click' ? !mixSt.clickOn : mixSt[ch + 'Mute'];
+      r.querySelector('.mv span').textContent = dbText(db) + (off && ch !== 'click' ? ' · muted' : '');
+      r.querySelector('.mv b').style.width = (db === -Infinity ? 0 : (db - MIN_DB + STEP_DB) / (MAX_DB - MIN_DB + STEP_DB) * 100) + '%';
+      r.classList.toggle('off', off || db === -Infinity);
+      const m = r.querySelector('.mute'); m.classList.toggle('on', ch === 'click' ? mixSt.clickOn : off);
+      if (ch === 'click') m.textContent = mixSt.clickOn ? 'On' : 'Off';
+      r.querySelector('[data-d="1"]').disabled = db >= MAX_DB; r.querySelector('[data-d="-1"]').disabled = db === -Infinity;
+    });
+  }
+  function applyMix() { eng.setLevels(effLevels()); renderMix(); try { localStorage.setItem('sd-mix', JSON.stringify(mixSt)); } catch (e) {} }
+  function nudge(ch, d) {
+    let db = mixSt[ch];
+    if (d > 0) db = db === -Infinity ? MIN_DB : Math.min(MAX_DB, db + STEP_DB);
+    else db = db <= MIN_DB ? -Infinity : db - STEP_DB;
+    mixSt[ch] = db;
+    if (ch === 'click' && d > 0) mixSt.clickOn = true; // turning the click up turns it on
+    else if (ch !== 'click' && d > 0) mixSt[ch + 'Mute'] = false;
+    applyMix();
+  }
   function planPreview(card) {
     const c = st.cur, gb = P.BEATS[c.meter], Pd = 60 / c.bpm, barDur = gb * Pd;
     const pbd = card.pattern.beats * card.pattern.bars * 60 / card.bpm;
@@ -288,6 +318,7 @@
     if (!st.playing) return;
     const el = cardEl(st.playing.id); if (el) { el.classList.remove('playing'); const b = el.querySelector('[data-prev]'); if (b) b.textContent = '▶ With my guitar'; }
     st.playing = null; eng.stopBuffer(); wake(false);
+    if (st.panel === 'prev') closePanel();
   }
   function preview(id) {
     if (st.playing && st.playing.id === id) { stopPreview(); return; }
@@ -302,16 +333,18 @@
         await eng.ready();
         if (!st.playing || st.playing.token !== token) return;
         const plan = planPreview(card);
-        const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, Object.assign(mix(), { loop: plan.loop }));
+        const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, { loop: plan.loop });
         if (!st.playing || st.playing.token !== token) return;
         await unlock(false);
         btn.textContent = '■ Stop';
         $('hSection').textContent = plan.whole ? `Playing your whole take, ${plan.bars} bars from ${fmt(plan.from)}.` : `Playing ${plan.bars} bars from ${fmt(plan.from)} of your take, the steadiest stretch${plan.loop ? ', on loop' : ''}.`;
         const cur = eng.playBuffer(buf, () => { if (st.playing && st.playing.token === token) stopPreview(); }, plan.loop ? { start: plan.lead, end: plan.lead + plan.drumSec } : null);
         wake(true);
-        const bar = el.querySelector('.prog i');
+        openPanel('prev', `${card.pattern.name} <span>with your guitar · ${tempoLabel(card)}</span>`, buf.grid.n);
+        const bar = el.querySelector('.prog i'); let lastCount = -2;
         const step = () => {
           if (!st.playing || st.playing.token !== token) { bar.style.width = '0'; return; }
+          const cnt = eng.previewCount(); if (cnt !== lastCount) { lastCount = cnt; litDot(cnt); }
           const el2 = eng.ctx.currentTime - cur.t0; bar.style.width = (cur.loop ? ((Math.max(0, el2 - cur.loop.start) % (cur.loop.end - cur.loop.start)) / (cur.loop.end - cur.loop.start)) * 100 : clamp(el2 / cur.dur * 100, 0, 100)) + '%';
           requestAnimationFrame(step);
         };
@@ -321,16 +354,25 @@
   }
 
   /* ---------- practice loop ---------- */
-  function renderDots(n) { $('pDots').innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i === 0 ? 'one' : ''}"></i>`).join(''); }
-  eng.onBeat = (b) => { const d = $('pDots').children; for (let i = 0; i < d.length; i++) d[i].classList.toggle('on', i === b.beat); };
+  // beat counter: 1 2 3 4 (1 2 3 in 3/4, 1–6 in 6/8), the ONE outlined, the current beat lit
+  function renderDots(n) { $('pDots').classList.toggle('many', n > 4); $('pDots').innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i === 0 ? 'one' : ''}">${i + 1}</i>`).join(''); }
+  function litDot(k) { const d = $('pDots').children; for (let i = 0; i < d.length; i++) d[i].classList.toggle('on', i === k); }
+  eng.onBeat = (b) => { if (st.panel === 'loop') litDot(b.count != null ? b.count : b.beat); };
+  function openPanel(mode, nameHTML, n) {
+    st.panel = mode; const pl = $('player');
+    pl.classList.toggle('prev', mode === 'prev'); pl.classList.toggle('loop', mode === 'loop');
+    $('pName').innerHTML = nameHTML; renderDots(n); renderMix();
+    if (mode === 'prev') $('pplay').textContent = 'Stop';
+    pl.classList.add('show'); document.body.classList.add('has-player');
+  }
+  function closePanel() { st.panel = null; litDot(-1); $('player').classList.remove('show'); document.body.classList.remove('has-player'); }
   function pTempoLabel() { const l = st.loop; $('pBpm').textContent = Math.round(l.bpm); }
   function openLoop(id) {
     stopAll(); unlock(false);
     const card = st.cards.find(c => c.id === id); if (!card) return;
     st.loop = { card, bpm: Math.round(card.bpm), running: false };
-    $('pName').innerHTML = `${card.pattern.name} <span>${card.pattern.meter === '6/8' ? '6/8 · ♩. per min' : card.pattern.meter + ' · BPM'}</span>`;
-    renderDots(card.pattern.beats); pTempoLabel();
-    $('player').classList.add('show'); document.body.classList.add('has-player');
+    openPanel('loop', `${card.pattern.name} <span>${card.pattern.meter === '6/8' ? '6/8 · ♩. per min' : card.pattern.meter + ' · BPM'}</span>`, D.clickGrid(card.pattern).n);
+    pTempoLabel();
     startLoop();
   }
   async function startLoop() {
@@ -341,8 +383,8 @@
     eng.startLoop(l.card.pattern, l.bpm, { fills: $('pFills').checked, crashFirst: false });
     l.running = true; $('pplay').textContent = 'Stop'; wake(true);
   }
-  function stopLoop() { eng.stopLoop(); if (st.loop) st.loop.running = false; $('pplay').textContent = 'Play'; const d = $('pDots').children; for (const x of d) x.classList.remove('on'); wake(false); }
-  function closeLoop() { stopLoop(); st.loop = null; $('player').classList.remove('show'); document.body.classList.remove('has-player'); }
+  function stopLoop() { eng.stopLoop(); if (st.loop) st.loop.running = false; $('pplay').textContent = 'Play'; litDot(-1); wake(false); }
+  function closeLoop() { stopLoop(); st.loop = null; closePanel(); }
   function stopAll() { stopPreview(); if (st.loop) closeLoop(); if (st.mic) { closeMic(); setListen('off'); } }
 
   /* ---------- wiring ---------- */
@@ -367,7 +409,6 @@
   $('segMeter').addEventListener('click', e => { const m = e.target.dataset && e.target.dataset.m; if (m && m !== st.cur.meter) applyChange({ meter: m }); });
   $('segFeel').addEventListener('click', e => { const f = e.target.dataset && e.target.dataset.f; if (f && f !== st.cur.feel) applyChange({ feel: f }); });
   $('snap').addEventListener('change', () => { stopPreview(); });
-  $('bal').addEventListener('change', () => { stopPreview(); });
   document.addEventListener('click', e => {
     const pv = e.target.closest('[data-prev]'); if (pv) { preview(pv.dataset.prev); return; }
     const lp = e.target.closest('[data-loop]'); if (lp) { openLoop(lp.dataset.loop); return; }
@@ -375,8 +416,14 @@
   document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
     const l = st.loop; if (!l) return; l.bpm = clamp(l.bpm + (+b.dataset.p), 30, 260); eng.setLoopTempo(l.bpm); pTempoLabel();
   }));
-  $('pplay').addEventListener('click', () => { if (!st.loop) return; if (st.loop.running) stopLoop(); else startLoop(); });
-  $('pClose').addEventListener('click', closeLoop);
+  $('pplay').addEventListener('click', () => { if (st.panel === 'prev') { stopPreview(); return; } if (!st.loop) return; if (st.loop.running) stopLoop(); else startLoop(); });
+  $('pClose').addEventListener('click', () => { if (st.panel === 'prev') stopPreview(); else closeLoop(); });
+  document.querySelectorAll('#mixer .mrow').forEach(r => {
+    const ch = r.dataset.ch;
+    r.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => nudge(ch, +b.dataset.d)));
+    r.querySelector('.mute').addEventListener('click', () => { if (ch === 'click') { mixSt.clickOn = !mixSt.clickOn; if (mixSt.clickOn && mixSt.click === -Infinity) mixSt.click = 0; } else { mixSt[ch + 'Mute'] = !mixSt[ch + 'Mute']; if (!mixSt[ch + 'Mute'] && mixSt[ch] === -Infinity) mixSt[ch] = 0; } applyMix(); });
+  });
+  applyMix();
   $('pFills').addEventListener('change', () => { if (eng.loop) eng.loop.opts.fills = $('pFills').checked; });
   document.addEventListener('visibilitychange', () => { if (document.hidden && st.mic) { const ev = st.listen === 'rec' && st.mic.L.finish(); if (ev && ev.type === 'take') handleEvent(ev); else { closeMic(); setListen('off'); } } });
 })();

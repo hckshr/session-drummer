@@ -49,7 +49,6 @@
       <div class="row"><label>Feel</label>
         <div class="seg" id="segFeel"><button data-f="straight">Straight</button><button data-f="swing">Swung</button></div>
       </div>
-      <div class="row guitarOnly"><label>Mix</label><span class="tag">Guitar</span><input type="range" id="bal" min="0" max="100" value="50"><span class="tag">Drums</span></div>
       <div class="row guitarOnly"><label>Preview</label><div class="seg" id="segPrev"><button data-v="best">Best bars</button><button data-v="whole">Whole take</button></div></div>
       <div class="row guitarOnly" id="ploopRow"><label class="switch"><input type="checkbox" id="ploop" checked> Loop the best bars</label></div>
       <div class="row guitarOnly"><label class="switch"><input type="checkbox" id="snap" checked> Snap my playing to the drum grid</label></div>
@@ -75,13 +74,19 @@
 <div id="player"><div class="in">
   <div class="name"><div id="pName">—</div><button class="close" id="pClose" aria-label="Close">×</button></div>
   <div class="dots" id="pDots"></div>
-  <div class="prow">
+  <div class="prow loopOnly">
     <button class="btn" data-p="-5">−5</button><button class="btn" data-p="-1">−1</button>
     <div class="tval" id="pBpm">90</div>
     <button class="btn" data-p="1">+1</button><button class="btn" data-p="5">+5</button>
   </div>
+  <div id="mixer">
+    <div class="mrow prevOnly" data-ch="guitar"><span class="ml">Guitar</span><button class="btn mb" data-d="-1" aria-label="Guitar quieter">−</button><div class="mv"><i><b></b></i><span>0 dB</span></div><button class="btn mb" data-d="1" aria-label="Guitar louder">+</button><button class="mute" aria-label="Mute guitar">Mute</button></div>
+    <div class="mrow" data-ch="drums"><span class="ml">Drums</span><button class="btn mb" data-d="-1" aria-label="Drums quieter">−</button><div class="mv"><i><b></b></i><span>0 dB</span></div><button class="btn mb" data-d="1" aria-label="Drums louder">+</button><button class="mute" aria-label="Mute drums">Mute</button></div>
+    <div class="mrow" data-ch="click"><span class="ml">Click</span><button class="btn mb" data-d="-1" aria-label="Click quieter">−</button><div class="mv"><i><b></b></i><span>0 dB</span></div><button class="btn mb" data-d="1" aria-label="Click louder">+</button><button class="mute tog" id="clickTog" aria-label="Click on or off">Off</button></div>
+  </div>
   <div class="prow" style="margin-top:10px">
-    <label class="switch"><input type="checkbox" id="pFills"> Fill every 4 bars</label>
+    <label class="switch loopOnly"><input type="checkbox" id="pFills"> Fill every 4 bars</label>
+    <span class="conf prevOnly" id="pNote">Changes apply while it plays.</span>
     <button class="btn pri" id="pplay">Stop</button>
   </div>
 </div></div>
