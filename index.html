@@ -90,6 +90,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
 .hide{display:none!important}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid #fff4;border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
+.foot a{color:#8a8e98}
 </style>
 </head>
 <body>
@@ -140,7 +141,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
     </div>
   </section>
 
-  <p class="foot">Everything stays on your phone. Nothing is recorded to a server or uploaded anywhere.<br>Drums are synthesized live in the browser.</p>
+  <p class="foot">Everything stays on your phone. Nothing is recorded to a server or uploaded anywhere.<br>Drum samples: <a href="https://github.com/sfzinstruments/virtuosity_drums">Virtuosity Drums</a> (Versilian Studios &amp; Karoryfer Samples) and <a href="https://github.com/sfzinstruments/karoryfer.swirly-drums">Swirly Drums</a> brushes (Karoryfer Samples), both CC0 1.0.</p>
 </main>
 
 <div id="player"><div class="in">
@@ -157,6 +158,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
   </div>
 </div></div>
 
+<script>window.SD_KIT_URL='/kit.json?v=831ff0049d';</script>
 <script>/* Session Drummer — audio analysis (pure JS, runs in browser or Node). Nothing leaves the device. */
 (function (root) {
   'use strict';
@@ -607,15 +609,15 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
       t: { K: 'X...|....|X.x.|....', S: '....|X...|....|X...', H: 'x.o.|x.o.|x.o.|x.o.' } },
     { id: 'xstick', name: 'Cross-stick pocket', desc: 'Rim-click backbeat and soft hats — quiet, close, and warm.', meter: '4/4', sub: 4, family: 'rim', kit: 'rim', energy: 0.3, busy: 0.3, dark: 0.55, tempo: [58, 118], fill: 'soft',
       t: { K: 'X...|....|x..x|....', R: '....|x...|....|x...', H: 'o.g.|o.g.|o.g.|o.g.' } },
-    { id: 'drive8', name: 'Driving straight eighths', desc: 'Pushy kick, hard eighth hats, backbeat on 2 and 4. Pushes the song forward.', meter: '4/4', sub: 4, family: 'drive', kit: 'sticks', energy: 0.8, busy: 0.5, dark: 0.5, tempo: [100, 175], fill: 'toms', crash: true,
+    { id: 'drive8', rimshot: true, name: 'Driving straight eighths', desc: 'Pushy kick, hard eighth hats, backbeat on 2 and 4. Pushes the song forward.', meter: '4/4', sub: 4, family: 'drive', kit: 'sticks', energy: 0.8, busy: 0.5, dark: 0.5, tempo: [100, 175], fill: 'toms', crash: true,
       t: { K: 'X...|..x.|X.x.|....', S: '....|X...|....|X...', H: 'X.x.|X.x.|X.x.|X.x.' } },
-    { id: 'floor4', name: 'Four on the floor', desc: 'Kick on every beat, open hat on the off-beats. Steady and danceable.', meter: '4/4', sub: 4, family: 'floor', kit: 'sticks', energy: 0.72, busy: 0.5, dark: 0.4, tempo: [96, 140], fill: 'snare', crash: true,
+    { id: 'floor4', rimshot: true, name: 'Four on the floor', desc: 'Kick on every beat, open hat on the off-beats. Steady and danceable.', meter: '4/4', sub: 4, family: 'floor', kit: 'sticks', energy: 0.72, busy: 0.5, dark: 0.4, tempo: [96, 140], fill: 'snare', crash: true,
       t: { K: 'X...|X...|X...|X...', S: '....|X...|....|X...', H: 'x...|x...|x...|x...', O: '..x.|..x.|..x.|..x.' } },
     { id: 'sixteenth', name: 'Busy sixteenth groove', desc: 'Sixteenth hats, syncopated kick, ghost notes on the snare. Busy but tight.', meter: '4/4', sub: 4, family: 'sixteenth', kit: 'sticks', energy: 0.65, busy: 0.85, dark: 0.45, tempo: [76, 115], fill: 'snare',
       t: { K: 'X..x|..x.|X...|.x..', S: '....|X..g|.g..|X..g', H: 'xoxo|xoxo|xoxo|xoxo' } },
     { id: 'rideballad', name: 'Slow ride and rim', desc: 'Ride cymbal eighths, rim-click on 2 and 4. Spacious, good for a slow song.', meter: '4/4', sub: 4, family: 'ballad', kit: 'rim', energy: 0.25, busy: 0.3, dark: 0.6, tempo: [52, 92], fill: 'soft',
       t: { K: 'X...|....|X...|....', R: '....|x...|....|x...', Y: 'x.o.|x.o.|x.o.|x.o.' } },
-    { id: 'bigslow', name: 'Big, slow backbeat', desc: 'Washy open hats, heavy kick and snare. Slow and heavy.', meter: '4/4', sub: 4, family: 'bigslow', kit: 'sticks', energy: 0.85, busy: 0.35, dark: 0.7, tempo: [54, 96], fill: 'toms', crash: true,
+    { id: 'bigslow', rimshot: true, name: 'Big, slow backbeat', desc: 'Washy open hats, heavy kick and snare. Slow and heavy.', meter: '4/4', sub: 4, family: 'bigslow', kit: 'sticks', energy: 0.85, busy: 0.35, dark: 0.7, tempo: [54, 96], fill: 'toms', crash: true,
       t: { K: 'X...|....|X.X.|....', S: '....|X...|....|X...', O: 'x.x.|x.x.|x.x.|x.x.' } },
     { id: 'brush4', name: 'Straight brushes', desc: 'Brush sweeps on every beat, light taps on 2 and 4, a feathered kick.', meter: '4/4', sub: 4, family: 'brushes', kit: 'brush', energy: 0.15, busy: 0.2, dark: 0.5, tempo: [56, 132], fill: 'brush',
       t: { SW: 'x...|x...|x...|x...', BR: '....|x...|....|x...', K: 'o...|....|o...|....', P: '....|x...|....|x...' } },
@@ -625,7 +627,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
       t: { SH: 'xoxo|xoxo|xoxo|xoxo', K: 'X...|....|X..x|....', R: '....|x...|....|x...' } },
     { id: 'halftime', name: 'Half-time feel', desc: 'Same tempo, but the snare lands only on 3. Big and spacious.', meter: '4/4', sub: 4, family: 'halftime', kit: 'sticks', energy: 0.6, busy: 0.3, dark: 0.65, tempo: [60, 175], fill: 'toms', crash: true, turn: true,
       t: { K: 'X...|....|..x.|....', S: '....|....|X...|....', H: 'x.x.|x.x.|x.x.|x.x.' } },
-    { id: 'doubletime', name: 'Double-time push', desc: 'Snare on every off-beat, so the drums run twice as fast as your part.', meter: '4/4', sub: 4, family: 'doubletime', kit: 'sticks', energy: 0.9, busy: 0.7, dark: 0.5, tempo: [56, 112], fill: 'snare', crash: true, turn: true, turnOnly: true,
+    { id: 'doubletime', rimshot: true, name: 'Double-time push', desc: 'Snare on every off-beat, so the drums run twice as fast as your part.', meter: '4/4', sub: 4, family: 'doubletime', kit: 'sticks', energy: 0.9, busy: 0.7, dark: 0.5, tempo: [56, 112], fill: 'snare', crash: true, turn: true, turnOnly: true,
       t: { K: 'X...|X...|X...|X...', S: '..X.|..X.|..X.|..X.', H: 'x.x.|x.x.|x.x.|x.x.' } },
     { id: 'train', name: 'Train beat', desc: 'Sixteenths on the snare with accents on 2 and 4. Chugs along like a train.', meter: '4/4', sub: 4, family: 'train', kit: 'sticks', energy: 0.7, busy: 0.9, dark: 0.45, tempo: [88, 175], fill: 'snare', turn: true,
       t: { K: 'X...|..x.|X...|..x.', S: 'gogo|Xogo|gogo|Xogo' } },
@@ -640,7 +642,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
       t: { K: 'X..|x..|X..|x..', S: '...|X..|...|X..', H: 'x.o|x.o|x.o|x.o' } },
     { id: 'slow128', name: 'Slow 12/8 blues', desc: 'Triplets on the ride with a heavy 2 and 4. Fits a slow minor blues.', meter: '4/4', sub: 3, family: 'slow128', kit: 'sticks', energy: 0.45, busy: 0.6, dark: 0.65, tempo: [44, 84], fill: 'toms', crash: true,
       t: { K: 'X..|...|x..|..o', S: '...|X..|...|X..', Y: 'xox|xox|xox|xox' } },
-    { id: 'texas', name: 'Driving double shuffle', desc: 'Both hands shuffle on the snare, with the kick on every beat. Hard-charging.', meter: '4/4', sub: 3, family: 'texas', kit: 'sticks', energy: 0.82, busy: 0.8, dark: 0.45, tempo: [100, 165], fill: 'snare', crash: true,
+    { id: 'texas', rimshot: true, name: 'Driving double shuffle', desc: 'Both hands shuffle on the snare, with the kick on every beat. Hard-charging.', meter: '4/4', sub: 3, family: 'texas', kit: 'sticks', energy: 0.82, busy: 0.8, dark: 0.45, tempo: [100, 165], fill: 'snare', crash: true,
       t: { K: 'X..|X..|X..|X..', S: 'g.o|X.o|g.o|X.o', P: '...|x..|...|x..' } },
     { id: 'hshuffle', name: 'Half-time shuffle', desc: 'Backbeat on 3 with shuffled ghost notes around it. Greasy, rolling, and busy.', meter: '4/4', sub: 3, family: 'hshuffle', kit: 'sticks', energy: 0.6, busy: 0.75, dark: 0.55, tempo: [66, 112], fill: 'snare', turn: true,
       t: { K: 'X..|..x|...|..x', S: '..g|..g|X.g|..g', H: 'x.o|x.o|x.o|x.o' } },
@@ -659,7 +661,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
       t: { K: 'X...|....|....', R: '....|x...|x...', H: 'x.o.|x.o.|x.o.' } },
     { id: 'darkwaltz', name: 'Dark, moody waltz', desc: 'Floor tom and kick on 1, ride and a lone rim-click. Slow and brooding.', meter: '3/4', sub: 4, family: 'ballad', kit: 'toms', energy: 0.35, busy: 0.3, dark: 0.9, tempo: [48, 112], fill: 'toms',
       t: { K: 'X...|....|..o.', T2: 'x...|....|....', R: '....|x...|....', Y: 'x.o.|x...|x.o.' } },
-    { id: 'bigwaltz', name: 'Big rolling 3/4', desc: 'Heavy kick on 1 and the "and" of 2, with a big snare on 3. Builds a big rolling sway.', meter: '3/4', sub: 4, family: 'bigwaltz', kit: 'sticks', energy: 0.75, busy: 0.45, dark: 0.6, tempo: [66, 150], fill: 'toms', crash: true,
+    { id: 'bigwaltz', rimshot: true, name: 'Big rolling 3/4', desc: 'Heavy kick on 1 and the "and" of 2, with a big snare on 3. Builds a big rolling sway.', meter: '3/4', sub: 4, family: 'bigwaltz', kit: 'sticks', energy: 0.75, busy: 0.45, dark: 0.6, tempo: [66, 150], fill: 'toms', crash: true,
       t: { K: 'X...|..x.|....', S: '....|....|X...', H: 'x.x.|x.x.|x.x.' } },
     { id: 'waltzhalf', name: 'Two-bar half-feel', desc: 'One snare every two bars over a steady ride. It stretches the waltz out wide.', meter: '3/4', sub: 4, bars: 2, family: 'halftime', kit: 'sticks', energy: 0.5, busy: 0.2, dark: 0.6, tempo: [80, 200], fill: 'toms', crash: true, turn: true, turnOnly: true,
       t: { K: 'X...|....|....|....|....|..o.', S: '....|....|....|X...|....|....', Y: 'x...|x...|x...|x...|x...|x...' } },
@@ -672,12 +674,12 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
       t: { T2: 'X.x|..x', K: 'X..|...', R: '...|x..', SH: 'xoo|xoo' } },
     { id: 'brush68', name: '6/8 brushes', desc: 'Two big brush sweeps per bar and a soft tap on 4.', meter: '6/8', sub: 3, family: 'brushes', kit: 'brush', energy: 0.15, busy: 0.3, dark: 0.5, tempo: [34, 92], fill: 'brush',
       t: { SW: 'x..|x..', BR: '...|x..', K: 'o..|...' } },
-    { id: 'drive68', name: 'Driving 6/8', desc: 'Every eighth on the hats, a pushy kick, and a hard snare on 4.', meter: '6/8', sub: 3, family: 'drive', kit: 'sticks', energy: 0.75, busy: 0.7, dark: 0.55, tempo: [38, 84], fill: 'toms', crash: true,
+    { id: 'drive68', rimshot: true, name: 'Driving 6/8', desc: 'Every eighth on the hats, a pushy kick, and a hard snare on 4.', meter: '6/8', sub: 3, family: 'drive', kit: 'sticks', energy: 0.75, busy: 0.7, dark: 0.55, tempo: [38, 84], fill: 'toms', crash: true,
       t: { K: 'X..|x.x', S: '...|X..', H: 'xxx|xxx' } },
     { id: 'afro68', name: '6/8 bell groove', desc: 'A rolling bell pattern on the ride bell, floor-tom answers, and rim on 4. Hypnotic.', meter: '6/8', sub: 3, bars: 2, family: 'afro', kit: 'toms', energy: 0.6, busy: 0.7, dark: 0.6, tempo: [38, 92], fill: 'none', turn: true,
       t: { B: 'x.x|.xx|.x.|x.x', K: 'X..|...|X..|...', T2: '..o|..x|..o|..x', R: '...|x..|...|x..' } },
   ];
-  const VOICES = ['K', 'S', 'R', 'H', 'P', 'O', 'Y', 'B', 'C', 'T1', 'T2', 'BR', 'SW', 'SH'];
+  const VOICES = ['K', 'S', 'RS', 'R', 'H', 'P', 'O', 'Y', 'B', 'C', 'T1', 'T2', 'BR', 'SW', 'SH'];
   const VEL = { X: 1, x: 0.78, o: 0.52, g: 0.3 };
   const BEATS = { '4/4': 4, '3/4': 3, '6/8': 2 };
 
@@ -774,145 +776,39 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
   const TAU = Math.PI * 2;
   function rng(seed) { let s = seed >>> 0 || 7; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
-  // RBJ biquad, in place
-  function biquad(x, type, f, Q, sr, gainDb) {
-    const w = TAU * Math.min(f, sr * 0.45) / sr, cs = Math.cos(w), sn = Math.sin(w), al = sn / (2 * Q);
-    const A = Math.pow(10, (gainDb || 0) / 40);
-    let b0, b1, b2, a0, a1, a2;
-    if (type === 'lp') { b0 = (1 - cs) / 2; b1 = 1 - cs; b2 = b0; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
-    else if (type === 'hp') { b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = b0; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
-    else if (type === 'bp') { b0 = al; b1 = 0; b2 = -al; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
-    else { b0 = 1 + al * A; b1 = -2 * cs; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cs; a2 = 1 - al / A; } // peak
-    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
-    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-    for (let i = 0; i < x.length; i++) { const xi = x[i]; const y = b0 * xi + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = xi; y2 = y1; y1 = y; x[i] = y; }
-    return x;
+  /* Acoustic kit: real recorded samples (CC0), decoded from MP3 at load time.
+     Sources: Virtuosity Drums (Versilian Studios / Karoryfer Samples) and Swirly Drums brushes (Karoryfer Samples). */
+  // mix: gain, pan, reverb send (samples already carry some room, so sends are small)
+  const MIX = { K: [1.0, 0, 0.03], S: [0.82, 0, 0.1], RS: [0.78, 0, 0.1], R: [0.7, 0, 0.08], H: [0.42, 0.25, 0.04], P: [0.38, 0.25, 0.03], O: [0.36, 0.25, 0.06],
+    Y: [0.42, -0.28, 0.06], B: [0.38, -0.28, 0.06], C: [0.42, -0.35, 0.08], T1: [0.8, 0.18, 0.1], T2: [0.86, -0.2, 0.1], BR: [0.85, 0.04, 0.1], SW: [0.5, -0.04, 0.08], SH: [0.34, 0.35, 0.05] };
+  function b64ToBuf(s) { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
+  function decodeWith(ctx, ab) {
+    return new Promise((res, rej) => { let done = false; const ok = b => { if (!done) { done = true; res(b); } }, bad = e => { if (!done) { done = true; rej(e || new Error('decode failed')); } };
+      try { const p = ctx.decodeAudioData(ab, ok, bad); if (p && p.then) p.then(ok, bad); } catch (e) { bad(e); } });
   }
-  function noise(n, r) { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = r() * 2 - 1; return a; }
-  function mixInto(out, src, envFn, sr) { for (let i = 0; i < out.length && i < src.length; i++) out[i] += src[i] * envFn(i / sr); }
-  function sat(x, d) { const k = Math.tanh(d); for (let i = 0; i < x.length; i++) x[i] = Math.tanh(d * x[i]) / k; return x; }
-  const ex = (t, tau) => Math.exp(-t / tau);
-  const att = (t, a) => (t < a ? t / a : 1);
-
-  function metal(n, sr, freqs, r) {
-    const out = new Float32Array(n); const ph = freqs.map(() => r() * TAU); const inc = freqs.map(f => TAU * f / sr);
-    for (let i = 0; i < n; i++) { let s = 0; for (let k = 0; k < freqs.length; k++) { ph[k] += inc[k]; s += Math.sin(ph[k]) > 0 ? 1 : -1; } out[i] = s / freqs.length; }
-    return out;
+  // MP3 decoders add a little silence up front; every sample was onset-trimmed at build time, so re-trim here.
+  function trimLead(x, sr, keepStart) {
+    let pk = 0; for (let i = 0; i < x.length; i++) { const a = Math.abs(x[i]); if (a > pk) pk = a; }
+    let i = 0; const th = keepStart ? 1e-4 : 0.02 * pk; while (i < x.length && Math.abs(x[i]) < th) i++;
+    return x.slice(Math.max(0, i - (keepStart ? 0 : Math.round(0.004 * sr))));
   }
-
-  const GEN = {
-    K(sr, v, r) {
-      const n = Math.round(0.6 * sr), out = new Float32Array(n);
-      const f0 = 140 + 30 * v + r() * 6, f1 = 46 + r() * 2; let ph = 0;
-      for (let i = 0; i < n; i++) { const t = i / sr; const f = f1 + (f0 - f1) * ex(t, 0.028); ph += TAU * f / sr; out[i] = Math.sin(ph) * ex(t, 0.17 + 0.13 * v) * att(t, 0.0015); }
-      const c = biquad(noise(Math.round(0.02 * sr), r), 'bp', 3200, 0.9, sr);
-      mixInto(out, c, t => (0.1 + 0.35 * v) * ex(t, 0.0025), sr);
-      const knock = new Float32Array(Math.round(0.05 * sr)); for (let i = 0; i < knock.length; i++) knock[i] = Math.sin(TAU * 620 * i / sr);
-      mixInto(out, knock, t => 0.12 * v * ex(t, 0.006), sr);
-      return sat(out, 1.4 + 0.5 * v);
-    },
-    S(sr, v, r) {
-      const n = Math.round(0.42 * sr), out = new Float32Array(n);
-      let p1 = 0, p2 = 0; const d = 1 + (r() - 0.5) * 0.03;
-      for (let i = 0; i < n; i++) { const t = i / sr; p1 += TAU * 186 * d * (1 + 0.25 * ex(t, 0.01)) / sr; p2 += TAU * 338 * d / sr; out[i] = (0.75 * Math.sin(p1) * ex(t, 0.05) + 0.32 * Math.sin(p2) * ex(t, 0.03)) * att(t, 0.001) * (0.6 + 0.4 * v); }
-      const nz = noise(n, r); biquad(nz, 'hp', 1300, 0.7, sr); biquad(nz, 'lp', 9500, 0.7, sr); biquad(nz, 'pk', 5200, 1, sr, 4);
-      mixInto(out, nz, t => (0.45 + 0.45 * v) * ex(t, 0.075 + 0.11 * v) * att(t, 0.0012), sr);
-      const sn = biquad(noise(Math.round(0.03 * sr), r), 'hp', 4500, 0.7, sr);
-      mixInto(out, sn, t => 0.5 * v * ex(t, 0.004), sr);
-      return sat(out, 1.3);
-    },
-    R(sr, v, r) {
-      const n = Math.round(0.16 * sr), out = new Float32Array(n);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] = 0.55 * Math.sin(TAU * 470 * t) * ex(t, 0.026) + 0.28 * Math.sin(TAU * 1240 * t) * ex(t, 0.011); }
-      const c = biquad(noise(n, r), 'bp', 2300, 3, sr); mixInto(out, c, t => (1.4 + v) * ex(t, 0.009), sr);
-      const k = biquad(noise(n, r), 'hp', 3500, 0.7, sr); mixInto(out, k, t => 0.4 * v * ex(t, 0.003), sr);
-      return sat(out, 1.5);
-    },
-    hatBase(sr, v, r, dur, decay) {
-      const n = Math.round(dur * sr); const f = 1 + (r() - 0.5) * 0.02;
-      const m = metal(n, sr, [205.3, 304.4, 369.6, 522.7, 540, 800].map(x => x * 1.9 * f), r);
-      const nz = noise(n, r); const out = new Float32Array(n);
-      for (let i = 0; i < n; i++) out[i] = 0.55 * m[i] + 0.5 * nz[i];
-      biquad(out, 'hp', 7200, 0.7, sr); biquad(out, 'hp', 6500, 0.7, sr); biquad(out, 'pk', 10500, 1.2, sr, 4); biquad(out, 'lp', 15000, 0.7, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] *= ex(t, decay) * att(t, 0.0008); }
-      return out;
-    },
-    H(sr, v, r) { return GEN.hatBase(sr, v, r, 0.18, 0.016 + 0.014 * v); },
-    O(sr, v, r) { return GEN.hatBase(sr, v, r, 0.9, 0.22 + 0.12 * v); },
-    P(sr, v, r) { const o = GEN.hatBase(sr, v, r, 0.12, 0.012); const c = biquad(noise(o.length, r), 'bp', 1700, 1.2, sr); mixInto(o, c, t => 0.35 * ex(t, 0.012) * att(t, 0.002), sr); return o; },
-    Y(sr, v, r) {
-      const n = Math.round(2.2 * sr); const m = metal(n, sr, [395, 531, 683, 819, 1005, 1201].map(x => x * (1 + (r() - 0.5) * 0.01)), r);
-      const out = new Float32Array(n); const nz = noise(n, r);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] = (0.6 * m[i] + 0.25 * nz[i]) * (0.35 * ex(t, 0.9) + 0.4 * ex(t, 0.08)); }
-      biquad(out, 'hp', 2800, 0.7, sr); biquad(out, 'pk', 6200, 0.8, sr, 5); biquad(out, 'lp', 13000, 0.7, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] += 0.12 * (Math.sin(TAU * 3150 * t) + 0.7 * Math.sin(TAU * 4720 * t)) * ex(t, 0.25); }
-      const st = biquad(noise(Math.round(0.02 * sr), r), 'hp', 6000, 0.7, sr); mixInto(out, st, t => 0.5 * v * ex(t, 0.004), sr);
-      return out;
-    },
-    B(sr, v, r) {
-      const n = Math.round(1.6 * sr), out = new Float32Array(n); const f0 = 760;
-      const P = [[1, 1, 1.0], [1.52, 0.55, 0.7], [2.33, 0.45, 0.5], [2.76, 0.3, 0.4], [3.67, 0.2, 0.3]];
-      for (let i = 0; i < n; i++) { const t = i / sr; let s = 0; for (const [m, a, d] of P) s += a * Math.sin(TAU * f0 * m * t) * ex(t, d); out[i] = s * 0.4 * att(t, 0.0008); }
-      const y = GEN.Y(sr, v, r); for (let i = 0; i < n; i++) out[i] += 0.35 * y[i];
-      return out;
-    },
-    C(sr, v, r) {
-      const n = Math.round(2.8 * sr); const m = metal(n, sr, [341, 479, 597, 733, 871, 1129].map(x => x * 1.3), r); const nz = noise(n, r); const out = new Float32Array(n);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] = (0.45 * m[i] + 0.6 * nz[i]) * ex(t, 0.75 + 0.4 * v) * att(t, 0.002); }
-      biquad(out, 'hp', 3200, 0.7, sr); biquad(out, 'pk', 7500, 0.6, sr, 3); biquad(out, 'lp', 12500, 0.7, sr);
-      return out;
-    },
-    tom(sr, v, r, f) {
-      const n = Math.round(0.8 * sr), out = new Float32Array(n); let ph = 0; const d = 1 + (r() - 0.5) * 0.02;
-      for (let i = 0; i < n; i++) { const t = i / sr; ph += TAU * f * d * (1 + 0.4 * ex(t, 0.035)) / sr; out[i] = (Math.sin(ph) + 0.15 * Math.sin(2.7 * ph)) * ex(t, f < 120 ? 0.36 : 0.26) * att(t, 0.001); }
-      const c = biquad(noise(Math.round(0.05 * sr), r), 'bp', f * 5, 1.5, sr); mixInto(out, c, t => (0.3 + 0.4 * v) * ex(t, 0.012), sr);
-      return sat(out, 1.4);
-    },
-    T1(sr, v, r) { return GEN.tom(sr, v, r, 168); },
-    T2(sr, v, r) { return GEN.tom(sr, v, r, 96); },
-    BR(sr, v, r) {
-      const n = Math.round(0.45 * sr), out = noise(n, r);
-      biquad(out, 'bp', 3000, 0.45, sr); biquad(out, 'hp', 450, 0.7, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] *= (ex(t, 0.045 + 0.07 * v) + 0.12 * ex(t, 0.25)) * att(t, 0.002); out[i] += 0.12 * Math.sin(TAU * 185 * t) * ex(t, 0.03) * v; }
-      return out;
-    },
-    SW(sr, v, r) {
-      const n = Math.round(1.0 * sr), out = noise(n, r); const blk = 256; const tmp = new Float32Array(n);
-      // time-varying band-pass, processed block by block (crude but smooth enough)
-      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-      for (let s = 0; s < n; s += blk) {
-        const t = s / sr; const fc = 1700 + 1500 * Math.sin(Math.PI * t) + 300 * Math.sin(TAU * 2 * t);
-        const w = TAU * fc / sr, cs = Math.cos(w), sn = Math.sin(w), al = sn / (2 * 0.6);
-        const b0 = al / (1 + al), b2 = -al / (1 + al), a1 = -2 * cs / (1 + al), a2 = (1 - al) / (1 + al);
-        for (let i = s; i < Math.min(n, s + blk); i++) { const xi = out[i]; const y = b0 * xi + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = xi; y2 = y1; y1 = y; tmp[i] = y; }
-      }
-      for (let i = 0; i < n; i++) { const t = i / n; tmp[i] *= Math.pow(Math.sin(Math.PI * t), 1.3) * (0.85 + 0.15 * Math.sin(TAU * 3 * t)); }
-      return tmp;
-    },
-    SH(sr, v, r) {
-      const n = Math.round(0.14 * sr), out = noise(n, r);
-      biquad(out, 'hp', 4800, 0.7, sr); biquad(out, 'bp', 8000, 0.6, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] *= t < 0.009 ? Math.pow(t / 0.009, 1.5) : ex(t - 0.009, 0.026 + 0.012 * v); }
-      return out;
-    }
-  };
-  // mix: gain, pan, reverb send
-  const MIX = { K: [1.0, 0, 0.05], S: [0.8, 0, 0.2], R: [0.6, 0, 0.16], H: [0.3, 0.28, 0.07], P: [0.24, 0.28, 0.06], O: [0.27, 0.28, 0.12], Y: [0.3, -0.3, 0.12], B: [0.3, -0.3, 0.12], C: [0.32, -0.38, 0.16], T1: [0.68, 0.22, 0.18], T2: [0.78, -0.22, 0.18], BR: [0.5, 0.05, 0.2], SW: [0.3, -0.05, 0.16], SH: [0.24, 0.38, 0.08] };
-
-  function renderKit(sr) {
-    const kit = {}; let seed = 11;
-    for (const v in MIX) {
-      kit[v] = { soft: [], hard: [] };
-      for (const [layer, hv] of [['soft', 0.35], ['hard', 1]]) for (let rr = 0; rr < 2; rr++) {
-        const d = GEN[v](sr, hv, rng(seed++ * 7919));
-        let pk = 0; for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i]));
-        const g = (pk > 0 ? 1 / pk : 1) * (layer === 'soft' ? 0.8 : 1);
-        for (let i = 0; i < d.length; i++) d[i] *= g;
-        kit[v][layer].push(d);
+  async function decodeKit(json, ctx, onProgress) {
+    const kit = {}; let n = 0, total = 0; for (const v in json.voices) for (const l of json.voices[v]) total += l.length;
+    for (const v in json.voices) {
+      kit[v] = [];
+      for (const layer of json.voices[v]) {
+        const arr = [];
+        for (const b64 of layer) {
+          const buf = await decodeWith(ctx, b64ToBuf(b64));
+          arr.push(trimLead(new Float32Array(buf.getChannelData(0)), buf.sampleRate, v === 'SW'));
+          if (onProgress) onProgress(++n / total);
+        }
+        kit[v].push(arr);
       }
     }
-    return { sr, kit };
+    return { sr: ctx.sampleRate, kit };
   }
+
   function makeIR(sr) {
     const n = Math.round(1.3 * sr); const L = new Float32Array(n), R = new Float32Array(n); const r = rng(99);
     let lpL = 0, lpR = 0;
@@ -938,7 +834,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
     o = o || {};
     const spb = p.stepsPerBar, pb = barIdx % p.bars, base = pb * spb;
     const ev = [];
-    for (const v in p.tracks) for (const [i, vel] of p.tracks[v]) if (i >= base && i < base + spb) ev.push({ v, step: i - base, vel, dur: v === 'SW' ? p.sub : 0 });
+    for (const v in p.tracks) for (const [i, vel] of p.tracks[v]) if (i >= base && i < base + spb) ev.push({ v: (p.rimshot && v === 'S' && vel >= 0.95) ? 'RS' : v, step: i - base, vel, dur: v === 'SW' ? p.sub : 0 });
     const fillBar = o.fills && p.fill !== 'none' && (barIdx % 4 === 3) && (p.bars === 1 || pb === p.bars - 1);
     if (fillBar) {
       const from = spb - p.sub;
@@ -957,16 +853,44 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
       const AC = root.AudioContext || root.webkitAudioContext;
       try { this.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { this.ctx = new AC(); }
     }
-    if (!this.kit) { this.kit = renderKit(this.ctx.sampleRate); this.ir = makeIR(this.ctx.sampleRate); }
-    if (!this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    if (this.kit && !this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
     return this.ctx;
   };
-  Engine.prototype.prepare = function (sr) { if (!this.kit) { this.kit = renderKit(sr); this.ir = makeIR(sr); } };
+  // Load + decode the sample kit. Tries an OfflineAudioContext first (works before any tap);
+  // if that is unavailable or fails, decodes again on the realtime context (called from a tap).
+  Engine.prototype.load = function (url, onProgress) {
+    if (this.loading) return this.loading;
+    const self = this;
+    this.loading = (async () => {
+      const json = await (await fetch(url)).json();
+      self.json = json;
+      let kit = null;
+      try {
+        const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext;
+        if (OAC) kit = await decodeKit(json, new OAC(1, 1, json.sr || 44100), onProgress);
+      } catch (e) { console.warn('offline decode failed, will decode on tap', e); kit = null; }
+      if (!kit) { self.needsTapDecode = true; return null; }
+      self.kit = kit; self.ir = makeIR(kit.sr); return kit;
+    })();
+    return this.loading;
+  };
+  // Call inside a tap: guarantees the kit is decoded (decoding on the live context if needed).
+  Engine.prototype.ready = async function (onProgress) {
+    await this.loading;
+    if (!this.kit) {
+      if (!this.json) throw new Error('drum samples did not download');
+      const ctx = this.ensure(true);
+      this.kit = await decodeKit(this.json, ctx, onProgress); this.ir = makeIR(this.kit.sr);
+    }
+    if (!this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    return this.kit;
+  };
   Engine.prototype.buffersFor = function (ctx) {
     let b = this.cache.get(ctx); if (b) return b;
     b = {}; const sr = this.kit.sr;
-    for (const v in this.kit.kit) { b[v] = {}; for (const layer of ['soft', 'hard']) b[v][layer] = this.kit.kit[v][layer].map(d => { const ab = ctx.createBuffer(1, d.length, sr); ab.getChannelData(0).set(d); return ab; }); }
-    const ir = ctx.createBuffer(2, this.ir[0].length, sr); ir.getChannelData(0).set(this.ir[0]); ir.getChannelData(1).set(this.ir[1]); b._ir = ir;
+    for (const v in this.kit.kit) b[v] = this.kit.kit[v].map(layer => layer.map(d => { const ab = ctx.createBuffer(1, d.length, sr); ab.getChannelData(0).set(d); return ab; }));
+    const irs = ctx.sampleRate; this.irs = this.irs || {}; const IR = this.irs[irs] || (this.irs[irs] = makeIR(irs)); // convolver needs the context's own rate
+    const ir = ctx.createBuffer(2, IR[0].length, irs); ir.getChannelData(0).set(IR[0]); ir.getChannelData(1).set(IR[1]); b._ir = ir;
     this.cache.set(ctx, b); return b;
   };
   Engine.prototype.buildChain = function (ctx, dest) {
@@ -976,7 +900,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
     comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 2.8; comp.attack.value = 0.006; comp.release.value = 0.14;
     comp.connect(out);
     const dry = ctx.createGain(); dry.connect(comp);
-    const verb = ctx.createConvolver(); verb.buffer = bufs._ir; const vin = ctx.createGain(); const vout = ctx.createGain(); vout.gain.value = 0.9;
+    const verb = ctx.createConvolver(); verb.buffer = bufs._ir; const vin = ctx.createGain(); const vout = ctx.createGain(); vout.gain.value = 0.7;
     vin.connect(verb); verb.connect(vout); vout.connect(comp);
     const chans = {};
     for (const v in MIX) {
@@ -988,18 +912,27 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
       const s = ctx.createGain(); s.gain.value = rev; node.connect(s); s.connect(vin);
       chans[v] = cg;
     }
-    return { ctx, out, chans, bufs, rr: 0, lastOpen: null };
+    return { ctx, out, chans, bufs, rr: {}, lastOpen: null };
   };
   Engine.prototype.hit = function (chain, v, when, vel, beatDur) {
-    const ctx = chain.ctx; const layer = vel < 0.6 ? 'soft' : 'hard';
-    const arr = chain.bufs[v][layer]; const buf = arr[(chain.rr++) % arr.length];
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const g = ctx.createGain(); g.gain.value = Math.pow(Math.min(1.2, vel), 1.35);
-    if (v === 'SW' && beatDur) src.playbackRate.value = Math.max(0.45, Math.min(2.2, 1 / (beatDur * 1.05)));
+    const ctx = chain.ctx; const layers = chain.bufs[v]; if (!layers) return null;
+    const L = layers.length; const li = Math.max(0, Math.min(L - 1, Math.floor(Math.pow(Math.min(1, vel), 1.5) * L)));
+    const arr = layers[li];
+    // round-robin without immediate repeats
+    const key = v + li; const last = chain.rr[key] == null ? -1 : chain.rr[key];
+    let k = arr.length > 1 ? (last + 1 + Math.floor(Math.random() * (arr.length - 1))) % arr.length : 0; chain.rr[key] = k;
+    const src = ctx.createBufferSource(); src.buffer = arr[k];
+    const g = ctx.createGain(); const amp = Math.pow(Math.min(1.15, vel), 1.5);
     src.connect(g); g.connect(chain.chans[v]);
-    if ((v === 'H' || v === 'P') && chain.lastOpen && chain.lastOpen.t < when) { try { chain.lastOpen.g.gain.setTargetAtTime(0, when, 0.012); } catch (e) {} chain.lastOpen = null; }
+    if ((v === 'H' || v === 'P') && chain.lastOpen && chain.lastOpen.t < when) { try { chain.lastOpen.g.gain.setTargetAtTime(0, when, 0.015); } catch (e) {} chain.lastOpen = null; }
     if (v === 'O') chain.lastOpen = { g, t: when };
-    src.start(Math.max(0, when));
+    const t = Math.max(0, when);
+    if (v === 'SW') { // brush stir: a slice of a long recorded sweep, shaped to one beat
+      const d = Math.max(0.15, (beatDur || 0.5) * 1.08); const len = arr[k].duration;
+      const off = Math.random() * Math.max(0, len - d - 0.05);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + d * 0.35); g.gain.linearRampToValueAtTime(amp * 0.6, t + d * 0.8); g.gain.linearRampToValueAtTime(0, t + d);
+      src.start(t, off, d + 0.02);
+    } else { g.gain.value = amp; src.start(t); }
     return src;
   };
   function humanize(r, ev, kit) {
@@ -1093,7 +1026,7 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
   };
   Engine.prototype.stopBuffer = function () { if (this.cur) { const s = this.cur.s; this.cur = null; try { s.stop(); } catch (e) {} } };
 
-  const api = { Engine, barEvents, renderKit, GEN, MIX };
+  const api = { Engine, barEvents, MIX, decodeKit };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SDDrums = api;
 })(typeof self !== 'undefined' ? self : this);
 
@@ -1107,8 +1040,8 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
   window.__sd = { st, eng, A, P, D };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  // Pre-render the kit while the page is idle (no AudioContext needed for that)
-  setTimeout(() => { try { eng.prepare(48000); } catch (e) { console.warn(e); } }, 150);
+  // Download + decode the recorded drum kit right away (decoding needs no tap; playback does).
+  eng.load(window.SD_KIT_URL || 'kit.json').catch(e => { console.error(e); warn('Couldn\'t load the drum samples. Check your connection and reload.'); });
 
   /* ---------- audio unlock (iOS) ---------- */
   let silentEl = null;
@@ -1362,6 +1295,8 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
     const token = {}; st.playing = { id, token };
     setTimeout(async () => {
       try {
+        await eng.ready();
+        if (!st.playing || st.playing.token !== token) return;
         const plan = planPreview(card);
         const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, mix());
         if (!st.playing || st.playing.token !== token) return;
@@ -1393,8 +1328,11 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
     $('player').classList.add('show'); document.body.classList.add('has-player');
     startLoop();
   }
-  function startLoop() {
+  async function startLoop() {
     const l = st.loop; if (!l) return; unlock(false);
+    if (!eng.kit) $('pplay').innerHTML = '<span class="spin"></span>Drums';
+    try { await eng.ready(); } catch (e) { warn('Couldn\'t load the drum samples: ' + e.message); $('pplay').textContent = 'Play'; return; }
+    if (st.loop !== l) return;
     eng.startLoop(l.card.pattern, l.bpm, { fills: $('pFills').checked, crashFirst: false });
     l.running = true; $('pplay').textContent = 'Stop'; wake(true);
   }

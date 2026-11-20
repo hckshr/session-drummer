@@ -6,7 +6,9 @@ const wav = process.argv[2] || 'shuffle90.wav'; const url = process.argv[3] || '
   const page = await ctx.newPage(); const errs = [];
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text()); });
   page.on('pageerror', e => errs.push('pageerror: ' + e.message));
-  await page.goto(url); await page.waitForTimeout(800);
+  await page.goto(url);
+  await page.waitForFunction(() => window.__sd.eng.kit, null, { timeout: 30000 });
+  console.log('kit:', await page.evaluate(() => { const k = window.__sd.eng.kit; const o = {}; for (const v in k.kit) { const L = k.kit[v]; const s = L[0][0]; let pk = 0, on = 0; for (let i = 0; i < s.length; i++) { if (Math.abs(s[i]) > pk) pk = Math.abs(s[i]); } while (on < s.length && Math.abs(s[on]) < 0.05 * pk) on++; o[v] = L.length + 'x' + L[0].length + ' ' + (s.length / k.sr).toFixed(2) + 's onset ' + (on / k.sr * 1000).toFixed(1) + 'ms'; } return { sr: k.sr, o }; }));
   await page.screenshot({ path: `${__dirname}/shot-${tag}-0.png` });
   await page.tap('#rec'); await page.waitForTimeout(3000);
   await page.screenshot({ path: `${__dirname}/shot-${tag}-1rec.png` });
@@ -18,7 +20,7 @@ const wav = process.argv[2] || 'shuffle90.wav'; const url = process.argv[3] || '
   // preview first card
   const t = Date.now();
   await page.tap('.sug [data-prev]'); await page.waitForFunction(() => window.__sd.eng.cur, null, { timeout: 15000 });
-  console.log('preview render+start ms', Date.now() - t, await page.evaluate(() => window.__sd.eng.cur.dur.toFixed(2)));
+  console.log('preview render+start ms', Date.now() - t, await page.evaluate(() => { const b = window.__sd.eng.cur.s.buffer; const d = b.getChannelData(0); let e = 0; for (const x of d) e += x * x; return b.duration.toFixed(2) + 's rms ' + Math.sqrt(e / d.length).toFixed(3); }));
   await page.waitForTimeout(1500); await page.screenshot({ path: `${__dirname}/shot-${tag}-3prev.png` });
   // preview a turn card
   await page.tap('#turns .sug [data-prev]'); await page.waitForTimeout(2500);

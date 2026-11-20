@@ -79,3 +79,4 @@ input[type=range]{flex:1;accent-color:var(--acc);height:32px}
 .hide{display:none!important}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid #fff4;border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
+.foot a{color:#8a8e98}

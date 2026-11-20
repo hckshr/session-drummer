@@ -2,11 +2,20 @@
 const fs = require('fs'); const d = __dirname;
 const rd = f => fs.readFileSync(d + '/src/' + f, 'utf8');
 const js = ['analysis.js', 'patterns.js', 'drums.js', 'app.js'].map(rd).join('\n;\n').replace(/<\/script/gi, '<\\/script');
-let html = rd('index.template.html').replace('/*CSS*/', () => rd('style.css')).replace('/*JS*/', () => js);
+const kit = rd('kit.json'); const kitHash = require('crypto').createHash('sha1').update(kit).digest('hex').slice(0, 10);
+const KITURL = '/kit.json?v=' + kitHash;
+let html = rd('index.template.html').replace('/*KITURL*/', KITURL).replace('/*CSS*/', () => rd('style.css')).replace('/*JS*/', () => js);
 fs.writeFileSync(d + '/index.html', html);
-const worker = `export default {
+fs.writeFileSync(d + '/kit.json', kit);
+const worker = `const KIT = ${JSON.stringify(kit)};
+export default {
   async fetch(request) {
     const HTML = ${JSON.stringify(html)};
+    const url = new URL(request.url);
+    if ((request.method === 'HEAD' || request.method === 'GET') && url.pathname === '/kit.json') {
+      return new Response(request.method === 'HEAD' ? null : KIT, { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=31536000, immutable', 'access-control-allow-origin': '*' } });
+    }
+    if ((request.method === 'HEAD' || request.method === 'GET') && url.pathname !== '/' && url.pathname !== '/index.html') return new Response('Not found', { status: 404 });
     if (request.method === 'HEAD' || request.method === 'GET') {
       return new Response(request.method === 'HEAD' ? null : HTML, {
         headers: {

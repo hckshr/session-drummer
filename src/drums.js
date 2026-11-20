@@ -4,145 +4,39 @@
   const TAU = Math.PI * 2;
   function rng(seed) { let s = seed >>> 0 || 7; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
-  // RBJ biquad, in place
-  function biquad(x, type, f, Q, sr, gainDb) {
-    const w = TAU * Math.min(f, sr * 0.45) / sr, cs = Math.cos(w), sn = Math.sin(w), al = sn / (2 * Q);
-    const A = Math.pow(10, (gainDb || 0) / 40);
-    let b0, b1, b2, a0, a1, a2;
-    if (type === 'lp') { b0 = (1 - cs) / 2; b1 = 1 - cs; b2 = b0; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
-    else if (type === 'hp') { b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = b0; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
-    else if (type === 'bp') { b0 = al; b1 = 0; b2 = -al; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
-    else { b0 = 1 + al * A; b1 = -2 * cs; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cs; a2 = 1 - al / A; } // peak
-    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
-    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-    for (let i = 0; i < x.length; i++) { const xi = x[i]; const y = b0 * xi + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = xi; y2 = y1; y1 = y; x[i] = y; }
-    return x;
+  /* Acoustic kit: real recorded samples (CC0), decoded from MP3 at load time.
+     Sources: Virtuosity Drums (Versilian Studios / Karoryfer Samples) and Swirly Drums brushes (Karoryfer Samples). */
+  // mix: gain, pan, reverb send (samples already carry some room, so sends are small)
+  const MIX = { K: [1.0, 0, 0.03], S: [0.82, 0, 0.1], RS: [0.78, 0, 0.1], R: [0.7, 0, 0.08], H: [0.42, 0.25, 0.04], P: [0.38, 0.25, 0.03], O: [0.36, 0.25, 0.06],
+    Y: [0.42, -0.28, 0.06], B: [0.38, -0.28, 0.06], C: [0.42, -0.35, 0.08], T1: [0.8, 0.18, 0.1], T2: [0.86, -0.2, 0.1], BR: [0.85, 0.04, 0.1], SW: [0.5, -0.04, 0.08], SH: [0.34, 0.35, 0.05] };
+  function b64ToBuf(s) { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
+  function decodeWith(ctx, ab) {
+    return new Promise((res, rej) => { let done = false; const ok = b => { if (!done) { done = true; res(b); } }, bad = e => { if (!done) { done = true; rej(e || new Error('decode failed')); } };
+      try { const p = ctx.decodeAudioData(ab, ok, bad); if (p && p.then) p.then(ok, bad); } catch (e) { bad(e); } });
   }
-  function noise(n, r) { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = r() * 2 - 1; return a; }
-  function mixInto(out, src, envFn, sr) { for (let i = 0; i < out.length && i < src.length; i++) out[i] += src[i] * envFn(i / sr); }
-  function sat(x, d) { const k = Math.tanh(d); for (let i = 0; i < x.length; i++) x[i] = Math.tanh(d * x[i]) / k; return x; }
-  const ex = (t, tau) => Math.exp(-t / tau);
-  const att = (t, a) => (t < a ? t / a : 1);
-
-  function metal(n, sr, freqs, r) {
-    const out = new Float32Array(n); const ph = freqs.map(() => r() * TAU); const inc = freqs.map(f => TAU * f / sr);
-    for (let i = 0; i < n; i++) { let s = 0; for (let k = 0; k < freqs.length; k++) { ph[k] += inc[k]; s += Math.sin(ph[k]) > 0 ? 1 : -1; } out[i] = s / freqs.length; }
-    return out;
+  // MP3 decoders add a little silence up front; every sample was onset-trimmed at build time, so re-trim here.
+  function trimLead(x, sr, keepStart) {
+    let pk = 0; for (let i = 0; i < x.length; i++) { const a = Math.abs(x[i]); if (a > pk) pk = a; }
+    let i = 0; const th = keepStart ? 1e-4 : 0.02 * pk; while (i < x.length && Math.abs(x[i]) < th) i++;
+    return x.slice(Math.max(0, i - (keepStart ? 0 : Math.round(0.004 * sr))));
   }
-
-  const GEN = {
-    K(sr, v, r) {
-      const n = Math.round(0.6 * sr), out = new Float32Array(n);
-      const f0 = 140 + 30 * v + r() * 6, f1 = 46 + r() * 2; let ph = 0;
-      for (let i = 0; i < n; i++) { const t = i / sr; const f = f1 + (f0 - f1) * ex(t, 0.028); ph += TAU * f / sr; out[i] = Math.sin(ph) * ex(t, 0.17 + 0.13 * v) * att(t, 0.0015); }
-      const c = biquad(noise(Math.round(0.02 * sr), r), 'bp', 3200, 0.9, sr);
-      mixInto(out, c, t => (0.1 + 0.35 * v) * ex(t, 0.0025), sr);
-      const knock = new Float32Array(Math.round(0.05 * sr)); for (let i = 0; i < knock.length; i++) knock[i] = Math.sin(TAU * 620 * i / sr);
-      mixInto(out, knock, t => 0.12 * v * ex(t, 0.006), sr);
-      return sat(out, 1.4 + 0.5 * v);
-    },
-    S(sr, v, r) {
-      const n = Math.round(0.42 * sr), out = new Float32Array(n);
-      let p1 = 0, p2 = 0; const d = 1 + (r() - 0.5) * 0.03;
-      for (let i = 0; i < n; i++) { const t = i / sr; p1 += TAU * 186 * d * (1 + 0.25 * ex(t, 0.01)) / sr; p2 += TAU * 338 * d / sr; out[i] = (0.75 * Math.sin(p1) * ex(t, 0.05) + 0.32 * Math.sin(p2) * ex(t, 0.03)) * att(t, 0.001) * (0.6 + 0.4 * v); }
-      const nz = noise(n, r); biquad(nz, 'hp', 1300, 0.7, sr); biquad(nz, 'lp', 9500, 0.7, sr); biquad(nz, 'pk', 5200, 1, sr, 4);
-      mixInto(out, nz, t => (0.45 + 0.45 * v) * ex(t, 0.075 + 0.11 * v) * att(t, 0.0012), sr);
-      const sn = biquad(noise(Math.round(0.03 * sr), r), 'hp', 4500, 0.7, sr);
-      mixInto(out, sn, t => 0.5 * v * ex(t, 0.004), sr);
-      return sat(out, 1.3);
-    },
-    R(sr, v, r) {
-      const n = Math.round(0.16 * sr), out = new Float32Array(n);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] = 0.55 * Math.sin(TAU * 470 * t) * ex(t, 0.026) + 0.28 * Math.sin(TAU * 1240 * t) * ex(t, 0.011); }
-      const c = biquad(noise(n, r), 'bp', 2300, 3, sr); mixInto(out, c, t => (1.4 + v) * ex(t, 0.009), sr);
-      const k = biquad(noise(n, r), 'hp', 3500, 0.7, sr); mixInto(out, k, t => 0.4 * v * ex(t, 0.003), sr);
-      return sat(out, 1.5);
-    },
-    hatBase(sr, v, r, dur, decay) {
-      const n = Math.round(dur * sr); const f = 1 + (r() - 0.5) * 0.02;
-      const m = metal(n, sr, [205.3, 304.4, 369.6, 522.7, 540, 800].map(x => x * 1.9 * f), r);
-      const nz = noise(n, r); const out = new Float32Array(n);
-      for (let i = 0; i < n; i++) out[i] = 0.55 * m[i] + 0.5 * nz[i];
-      biquad(out, 'hp', 7200, 0.7, sr); biquad(out, 'hp', 6500, 0.7, sr); biquad(out, 'pk', 10500, 1.2, sr, 4); biquad(out, 'lp', 15000, 0.7, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] *= ex(t, decay) * att(t, 0.0008); }
-      return out;
-    },
-    H(sr, v, r) { return GEN.hatBase(sr, v, r, 0.18, 0.016 + 0.014 * v); },
-    O(sr, v, r) { return GEN.hatBase(sr, v, r, 0.9, 0.22 + 0.12 * v); },
-    P(sr, v, r) { const o = GEN.hatBase(sr, v, r, 0.12, 0.012); const c = biquad(noise(o.length, r), 'bp', 1700, 1.2, sr); mixInto(o, c, t => 0.35 * ex(t, 0.012) * att(t, 0.002), sr); return o; },
-    Y(sr, v, r) {
-      const n = Math.round(2.2 * sr); const m = metal(n, sr, [395, 531, 683, 819, 1005, 1201].map(x => x * (1 + (r() - 0.5) * 0.01)), r);
-      const out = new Float32Array(n); const nz = noise(n, r);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] = (0.6 * m[i] + 0.25 * nz[i]) * (0.35 * ex(t, 0.9) + 0.4 * ex(t, 0.08)); }
-      biquad(out, 'hp', 2800, 0.7, sr); biquad(out, 'pk', 6200, 0.8, sr, 5); biquad(out, 'lp', 13000, 0.7, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] += 0.12 * (Math.sin(TAU * 3150 * t) + 0.7 * Math.sin(TAU * 4720 * t)) * ex(t, 0.25); }
-      const st = biquad(noise(Math.round(0.02 * sr), r), 'hp', 6000, 0.7, sr); mixInto(out, st, t => 0.5 * v * ex(t, 0.004), sr);
-      return out;
-    },
-    B(sr, v, r) {
-      const n = Math.round(1.6 * sr), out = new Float32Array(n); const f0 = 760;
-      const P = [[1, 1, 1.0], [1.52, 0.55, 0.7], [2.33, 0.45, 0.5], [2.76, 0.3, 0.4], [3.67, 0.2, 0.3]];
-      for (let i = 0; i < n; i++) { const t = i / sr; let s = 0; for (const [m, a, d] of P) s += a * Math.sin(TAU * f0 * m * t) * ex(t, d); out[i] = s * 0.4 * att(t, 0.0008); }
-      const y = GEN.Y(sr, v, r); for (let i = 0; i < n; i++) out[i] += 0.35 * y[i];
-      return out;
-    },
-    C(sr, v, r) {
-      const n = Math.round(2.8 * sr); const m = metal(n, sr, [341, 479, 597, 733, 871, 1129].map(x => x * 1.3), r); const nz = noise(n, r); const out = new Float32Array(n);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] = (0.45 * m[i] + 0.6 * nz[i]) * ex(t, 0.75 + 0.4 * v) * att(t, 0.002); }
-      biquad(out, 'hp', 3200, 0.7, sr); biquad(out, 'pk', 7500, 0.6, sr, 3); biquad(out, 'lp', 12500, 0.7, sr);
-      return out;
-    },
-    tom(sr, v, r, f) {
-      const n = Math.round(0.8 * sr), out = new Float32Array(n); let ph = 0; const d = 1 + (r() - 0.5) * 0.02;
-      for (let i = 0; i < n; i++) { const t = i / sr; ph += TAU * f * d * (1 + 0.4 * ex(t, 0.035)) / sr; out[i] = (Math.sin(ph) + 0.15 * Math.sin(2.7 * ph)) * ex(t, f < 120 ? 0.36 : 0.26) * att(t, 0.001); }
-      const c = biquad(noise(Math.round(0.05 * sr), r), 'bp', f * 5, 1.5, sr); mixInto(out, c, t => (0.3 + 0.4 * v) * ex(t, 0.012), sr);
-      return sat(out, 1.4);
-    },
-    T1(sr, v, r) { return GEN.tom(sr, v, r, 168); },
-    T2(sr, v, r) { return GEN.tom(sr, v, r, 96); },
-    BR(sr, v, r) {
-      const n = Math.round(0.45 * sr), out = noise(n, r);
-      biquad(out, 'bp', 3000, 0.45, sr); biquad(out, 'hp', 450, 0.7, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] *= (ex(t, 0.045 + 0.07 * v) + 0.12 * ex(t, 0.25)) * att(t, 0.002); out[i] += 0.12 * Math.sin(TAU * 185 * t) * ex(t, 0.03) * v; }
-      return out;
-    },
-    SW(sr, v, r) {
-      const n = Math.round(1.0 * sr), out = noise(n, r); const blk = 256; const tmp = new Float32Array(n);
-      // time-varying band-pass, processed block by block (crude but smooth enough)
-      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-      for (let s = 0; s < n; s += blk) {
-        const t = s / sr; const fc = 1700 + 1500 * Math.sin(Math.PI * t) + 300 * Math.sin(TAU * 2 * t);
-        const w = TAU * fc / sr, cs = Math.cos(w), sn = Math.sin(w), al = sn / (2 * 0.6);
-        const b0 = al / (1 + al), b2 = -al / (1 + al), a1 = -2 * cs / (1 + al), a2 = (1 - al) / (1 + al);
-        for (let i = s; i < Math.min(n, s + blk); i++) { const xi = out[i]; const y = b0 * xi + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = xi; y2 = y1; y1 = y; tmp[i] = y; }
-      }
-      for (let i = 0; i < n; i++) { const t = i / n; tmp[i] *= Math.pow(Math.sin(Math.PI * t), 1.3) * (0.85 + 0.15 * Math.sin(TAU * 3 * t)); }
-      return tmp;
-    },
-    SH(sr, v, r) {
-      const n = Math.round(0.14 * sr), out = noise(n, r);
-      biquad(out, 'hp', 4800, 0.7, sr); biquad(out, 'bp', 8000, 0.6, sr);
-      for (let i = 0; i < n; i++) { const t = i / sr; out[i] *= t < 0.009 ? Math.pow(t / 0.009, 1.5) : ex(t - 0.009, 0.026 + 0.012 * v); }
-      return out;
-    }
-  };
-  // mix: gain, pan, reverb send
-  const MIX = { K: [1.0, 0, 0.05], S: [0.8, 0, 0.2], R: [0.6, 0, 0.16], H: [0.3, 0.28, 0.07], P: [0.24, 0.28, 0.06], O: [0.27, 0.28, 0.12], Y: [0.3, -0.3, 0.12], B: [0.3, -0.3, 0.12], C: [0.32, -0.38, 0.16], T1: [0.68, 0.22, 0.18], T2: [0.78, -0.22, 0.18], BR: [0.5, 0.05, 0.2], SW: [0.3, -0.05, 0.16], SH: [0.24, 0.38, 0.08] };
-
-  function renderKit(sr) {
-    const kit = {}; let seed = 11;
-    for (const v in MIX) {
-      kit[v] = { soft: [], hard: [] };
-      for (const [layer, hv] of [['soft', 0.35], ['hard', 1]]) for (let rr = 0; rr < 2; rr++) {
-        const d = GEN[v](sr, hv, rng(seed++ * 7919));
-        let pk = 0; for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i]));
-        const g = (pk > 0 ? 1 / pk : 1) * (layer === 'soft' ? 0.8 : 1);
-        for (let i = 0; i < d.length; i++) d[i] *= g;
-        kit[v][layer].push(d);
+  async function decodeKit(json, ctx, onProgress) {
+    const kit = {}; let n = 0, total = 0; for (const v in json.voices) for (const l of json.voices[v]) total += l.length;
+    for (const v in json.voices) {
+      kit[v] = [];
+      for (const layer of json.voices[v]) {
+        const arr = [];
+        for (const b64 of layer) {
+          const buf = await decodeWith(ctx, b64ToBuf(b64));
+          arr.push(trimLead(new Float32Array(buf.getChannelData(0)), buf.sampleRate, v === 'SW'));
+          if (onProgress) onProgress(++n / total);
+        }
+        kit[v].push(arr);
       }
     }
-    return { sr, kit };
+    return { sr: ctx.sampleRate, kit };
   }
+
   function makeIR(sr) {
     const n = Math.round(1.3 * sr); const L = new Float32Array(n), R = new Float32Array(n); const r = rng(99);
     let lpL = 0, lpR = 0;
@@ -168,7 +62,7 @@
     o = o || {};
     const spb = p.stepsPerBar, pb = barIdx % p.bars, base = pb * spb;
     const ev = [];
-    for (const v in p.tracks) for (const [i, vel] of p.tracks[v]) if (i >= base && i < base + spb) ev.push({ v, step: i - base, vel, dur: v === 'SW' ? p.sub : 0 });
+    for (const v in p.tracks) for (const [i, vel] of p.tracks[v]) if (i >= base && i < base + spb) ev.push({ v: (p.rimshot && v === 'S' && vel >= 0.95) ? 'RS' : v, step: i - base, vel, dur: v === 'SW' ? p.sub : 0 });
     const fillBar = o.fills && p.fill !== 'none' && (barIdx % 4 === 3) && (p.bars === 1 || pb === p.bars - 1);
     if (fillBar) {
       const from = spb - p.sub;
@@ -187,16 +81,44 @@
       const AC = root.AudioContext || root.webkitAudioContext;
       try { this.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { this.ctx = new AC(); }
     }
-    if (!this.kit) { this.kit = renderKit(this.ctx.sampleRate); this.ir = makeIR(this.ctx.sampleRate); }
-    if (!this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    if (this.kit && !this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
     return this.ctx;
   };
-  Engine.prototype.prepare = function (sr) { if (!this.kit) { this.kit = renderKit(sr); this.ir = makeIR(sr); } };
+  // Load + decode the sample kit. Tries an OfflineAudioContext first (works before any tap);
+  // if that is unavailable or fails, decodes again on the realtime context (called from a tap).
+  Engine.prototype.load = function (url, onProgress) {
+    if (this.loading) return this.loading;
+    const self = this;
+    this.loading = (async () => {
+      const json = await (await fetch(url)).json();
+      self.json = json;
+      let kit = null;
+      try {
+        const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext;
+        if (OAC) kit = await decodeKit(json, new OAC(1, 1, json.sr || 44100), onProgress);
+      } catch (e) { console.warn('offline decode failed, will decode on tap', e); kit = null; }
+      if (!kit) { self.needsTapDecode = true; return null; }
+      self.kit = kit; self.ir = makeIR(kit.sr); return kit;
+    })();
+    return this.loading;
+  };
+  // Call inside a tap: guarantees the kit is decoded (decoding on the live context if needed).
+  Engine.prototype.ready = async function (onProgress) {
+    await this.loading;
+    if (!this.kit) {
+      if (!this.json) throw new Error('drum samples did not download');
+      const ctx = this.ensure(true);
+      this.kit = await decodeKit(this.json, ctx, onProgress); this.ir = makeIR(this.kit.sr);
+    }
+    if (!this.chain) this.chain = this.buildChain(this.ctx, this.ctx.destination);
+    return this.kit;
+  };
   Engine.prototype.buffersFor = function (ctx) {
     let b = this.cache.get(ctx); if (b) return b;
     b = {}; const sr = this.kit.sr;
-    for (const v in this.kit.kit) { b[v] = {}; for (const layer of ['soft', 'hard']) b[v][layer] = this.kit.kit[v][layer].map(d => { const ab = ctx.createBuffer(1, d.length, sr); ab.getChannelData(0).set(d); return ab; }); }
-    const ir = ctx.createBuffer(2, this.ir[0].length, sr); ir.getChannelData(0).set(this.ir[0]); ir.getChannelData(1).set(this.ir[1]); b._ir = ir;
+    for (const v in this.kit.kit) b[v] = this.kit.kit[v].map(layer => layer.map(d => { const ab = ctx.createBuffer(1, d.length, sr); ab.getChannelData(0).set(d); return ab; }));
+    const irs = ctx.sampleRate; this.irs = this.irs || {}; const IR = this.irs[irs] || (this.irs[irs] = makeIR(irs)); // convolver needs the context's own rate
+    const ir = ctx.createBuffer(2, IR[0].length, irs); ir.getChannelData(0).set(IR[0]); ir.getChannelData(1).set(IR[1]); b._ir = ir;
     this.cache.set(ctx, b); return b;
   };
   Engine.prototype.buildChain = function (ctx, dest) {
@@ -206,7 +128,7 @@
     comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 2.8; comp.attack.value = 0.006; comp.release.value = 0.14;
     comp.connect(out);
     const dry = ctx.createGain(); dry.connect(comp);
-    const verb = ctx.createConvolver(); verb.buffer = bufs._ir; const vin = ctx.createGain(); const vout = ctx.createGain(); vout.gain.value = 0.9;
+    const verb = ctx.createConvolver(); verb.buffer = bufs._ir; const vin = ctx.createGain(); const vout = ctx.createGain(); vout.gain.value = 0.7;
     vin.connect(verb); verb.connect(vout); vout.connect(comp);
     const chans = {};
     for (const v in MIX) {
@@ -218,18 +140,27 @@
       const s = ctx.createGain(); s.gain.value = rev; node.connect(s); s.connect(vin);
       chans[v] = cg;
     }
-    return { ctx, out, chans, bufs, rr: 0, lastOpen: null };
+    return { ctx, out, chans, bufs, rr: {}, lastOpen: null };
   };
   Engine.prototype.hit = function (chain, v, when, vel, beatDur) {
-    const ctx = chain.ctx; const layer = vel < 0.6 ? 'soft' : 'hard';
-    const arr = chain.bufs[v][layer]; const buf = arr[(chain.rr++) % arr.length];
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const g = ctx.createGain(); g.gain.value = Math.pow(Math.min(1.2, vel), 1.35);
-    if (v === 'SW' && beatDur) src.playbackRate.value = Math.max(0.45, Math.min(2.2, 1 / (beatDur * 1.05)));
+    const ctx = chain.ctx; const layers = chain.bufs[v]; if (!layers) return null;
+    const L = layers.length; const li = Math.max(0, Math.min(L - 1, Math.floor(Math.pow(Math.min(1, vel), 1.5) * L)));
+    const arr = layers[li];
+    // round-robin without immediate repeats
+    const key = v + li; const last = chain.rr[key] == null ? -1 : chain.rr[key];
+    let k = arr.length > 1 ? (last + 1 + Math.floor(Math.random() * (arr.length - 1))) % arr.length : 0; chain.rr[key] = k;
+    const src = ctx.createBufferSource(); src.buffer = arr[k];
+    const g = ctx.createGain(); const amp = Math.pow(Math.min(1.15, vel), 1.5);
     src.connect(g); g.connect(chain.chans[v]);
-    if ((v === 'H' || v === 'P') && chain.lastOpen && chain.lastOpen.t < when) { try { chain.lastOpen.g.gain.setTargetAtTime(0, when, 0.012); } catch (e) {} chain.lastOpen = null; }
+    if ((v === 'H' || v === 'P') && chain.lastOpen && chain.lastOpen.t < when) { try { chain.lastOpen.g.gain.setTargetAtTime(0, when, 0.015); } catch (e) {} chain.lastOpen = null; }
     if (v === 'O') chain.lastOpen = { g, t: when };
-    src.start(Math.max(0, when));
+    const t = Math.max(0, when);
+    if (v === 'SW') { // brush stir: a slice of a long recorded sweep, shaped to one beat
+      const d = Math.max(0.15, (beatDur || 0.5) * 1.08); const len = arr[k].duration;
+      const off = Math.random() * Math.max(0, len - d - 0.05);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + d * 0.35); g.gain.linearRampToValueAtTime(amp * 0.6, t + d * 0.8); g.gain.linearRampToValueAtTime(0, t + d);
+      src.start(t, off, d + 0.02);
+    } else { g.gain.value = amp; src.start(t); }
     return src;
   };
   function humanize(r, ev, kit) {
@@ -323,6 +254,6 @@
   };
   Engine.prototype.stopBuffer = function () { if (this.cur) { const s = this.cur.s; this.cur = null; try { s.stop(); } catch (e) {} } };
 
-  const api = { Engine, barEvents, renderKit, GEN, MIX };
+  const api = { Engine, barEvents, MIX, decodeKit };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SDDrums = api;
 })(typeof self !== 'undefined' ? self : this);

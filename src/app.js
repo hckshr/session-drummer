@@ -7,8 +7,8 @@
   window.__sd = { st, eng, A, P, D };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  // Pre-render the kit while the page is idle (no AudioContext needed for that)
-  setTimeout(() => { try { eng.prepare(48000); } catch (e) { console.warn(e); } }, 150);
+  // Download + decode the recorded drum kit right away (decoding needs no tap; playback does).
+  eng.load(window.SD_KIT_URL || 'kit.json').catch(e => { console.error(e); warn('Couldn\'t load the drum samples. Check your connection and reload.'); });
 
   /* ---------- audio unlock (iOS) ---------- */
   let silentEl = null;
@@ -262,6 +262,8 @@
     const token = {}; st.playing = { id, token };
     setTimeout(async () => {
       try {
+        await eng.ready();
+        if (!st.playing || st.playing.token !== token) return;
         const plan = planPreview(card);
         const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, mix());
         if (!st.playing || st.playing.token !== token) return;
@@ -293,8 +295,11 @@
     $('player').classList.add('show'); document.body.classList.add('has-player');
     startLoop();
   }
-  function startLoop() {
+  async function startLoop() {
     const l = st.loop; if (!l) return; unlock(false);
+    if (!eng.kit) $('pplay').innerHTML = '<span class="spin"></span>Drums';
+    try { await eng.ready(); } catch (e) { warn('Couldn\'t load the drum samples: ' + e.message); $('pplay').textContent = 'Play'; return; }
+    if (st.loop !== l) return;
     eng.startLoop(l.card.pattern, l.bpm, { fills: $('pFills').checked, crashFirst: false });
     l.running = true; $('pplay').textContent = 'Stop'; wake(true);
   }
