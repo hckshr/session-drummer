@@ -6,10 +6,25 @@ A web page that listens to you play guitar through your phone's mic and suggests
 
 ## How it works
 
-1. Tap **Listen** and play for 10–20 seconds.
-2. It works out your tempo, meter (4/4 or 3/4), straight vs. swung feel, and a rough mood, then describes it in plain words ("relaxed, dark and moody 3/4").
-3. You get a few drum parts that fit, plus a couple of left turns that might not work but could be interesting.
-4. **With my guitar** plays ~10 seconds of your take, beat-aligned to the drum grid, with that groove. **Loop drums** gives you drums only to practice against.
+1. Tap **Record** once. The page opens the mic and waits. It shows "Listening · play whenever" with a live level meter.
+2. Start playing whenever you're ready. Recording begins on your first notes. It keeps about 1.75 s of pre-roll, so the start isn't clipped.
+3. It stops by itself after about 3 s of quiet, or at 60 s max. You can also tap to finish early. Then the **mic closes**. The take, the analysis and the suggestions stay put until you tap **Record / New take** again. A new take only replaces the old one if it works out. Cancel, or a take with no clear rhythm, keeps the previous one.
+4. The take is trimmed to the music, from just before the first note to about 1.5 s after the last. It works out the tempo, meter (4/4 or 3/4), straight or swung feel, and a rough mood, then describes it in plain words ("relaxed, dark and moody 3/4").
+5. You get a few drum parts that fit, plus a couple of left turns that might not work but could be interesting.
+6. **With my guitar** has two modes:
+   - **Best bars** loops a clean 4 or 8 bars (about 8–16 s) from the steadiest, fully played stretch of the take.
+   - **Whole take** plays everything.
+
+   Either way your playing is beat-aligned to the drum grid. **Loop drums** gives you drums only to practice against.
+
+### Detection settings (under "Listening settings")
+
+| Setting | Options | Default |
+|---|---|---|
+| Start on | Loud notes / Normal / Soft notes | Normal |
+| Stop after | 2 s / 3 s / 4 s of quiet | 3 s |
+
+"Start on" sets how far above the room's noise floor a note has to be (18 / 12 / 8 dB). It takes two note attacks within 1.6 s to start a take. Takes under 4 s of playing are thrown away and it keeps listening. If nothing is played for 2 minutes, it stops listening. Settings are saved on the device.
 
 ## Drum sounds
 

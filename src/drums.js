@@ -224,7 +224,7 @@
     const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext;
     const off = new OAC(2, len, sr);
     const master = off.createGain(); master.connect(off.destination);
-    const fadeAt = lead + drumSec + 0.1; master.gain.setValueAtTime(1, fadeAt); master.gain.linearRampToValueAtTime(0, fadeAt + tail - 0.15);
+    const fadeAt = lead + drumSec + 0.1; if (!mix.loop) { master.gain.setValueAtTime(1, fadeAt); master.gain.linearRampToValueAtTime(0, fadeAt + tail - 0.15); }
     const drumBus = off.createGain(); drumBus.gain.value = mix.drums; drumBus.connect(master);
     const chain = this.buildChain(off, drumBus);
     const stepDur = 60 / bpm / p.sub; const barDur = stepDur * p.stepsPerBar; const nBars = Math.round(drumSec / barDur);
@@ -237,6 +237,10 @@
     }
     const done = off.startRendering();
     const finish = (buf) => {
+      if (mix.loop) { // fold the ring-out back onto the top so the loop is seamless
+        const a = Math.round(lead * sr), L = Math.round(drumSec * sr);
+        for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let j = a + L; j < d.length; j++) { d[j - L] += d[j]; d[j] = 0; } }
+      }
       let pk = 0; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); }
       if (pk > 0.97) { const g = 0.97 / pk; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= g; } }
       return buf;
@@ -244,12 +248,13 @@
     if (done && done.then) return done.then(finish);
     return new Promise(res => { off.oncomplete = e => res(finish(e.renderedBuffer)); });
   };
-  Engine.prototype.playBuffer = function (buf, onEnd) {
+  Engine.prototype.playBuffer = function (buf, onEnd, loop) {
     const ctx = this.ensure(); this.stopBuffer();
     const s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination);
+    if (loop) { s.loop = true; s.loopStart = loop.start; s.loopEnd = loop.end; }
     const t0 = ctx.currentTime + 0.03; s.start(t0);
     s.onended = () => { if (this.cur && this.cur.s === s) { this.cur = null; if (onEnd) onEnd(); } };
-    this.cur = { s, t0, dur: buf.duration };
+    this.cur = { s, t0, dur: buf.duration, loop };
     return this.cur;
   };
   Engine.prototype.stopBuffer = function () { if (this.cur) { const s = this.cur.s; this.cur = null; try { s.stop(); } catch (e) {} } };

@@ -1,7 +1,7 @@
 // Inline src/* into index.html, then wrap into worker.js and deploy-mcp.js (Cloudflare MCP execute payload)
 const fs = require('fs'); const d = __dirname;
 const rd = f => fs.readFileSync(d + '/src/' + f, 'utf8');
-const js = ['analysis.js', 'patterns.js', 'drums.js', 'app.js'].map(rd).join('\n;\n').replace(/<\/script/gi, '<\\/script');
+const js = ['analysis.js', 'patterns.js', 'drums.js', 'listener.js', 'app.js'].map(rd).join('\n;\n').replace(/<\/script/gi, '<\\/script');
 const kit = rd('kit.json'); const kitHash = require('crypto').createHash('sha1').update(kit).digest('hex').slice(0, 10);
 const KITURL = '/kit.json?v=' + kitHash;
 let html = rd('index.template.html').replace('/*KITURL*/', KITURL).replace('/*CSS*/', () => rd('style.css')).replace('/*JS*/', () => js);

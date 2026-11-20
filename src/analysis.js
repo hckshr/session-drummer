@@ -432,6 +432,33 @@
     return out.subarray(0, outLen);
   }
 
-  const api = { analyze, retrack, warp, describe, features, _internals: { extract, estimateTempo, trackBeats, analyseSwing, analyseMeter, pickOnsets } };
+  /* ---------- pick the best section ----------
+     res: (re)tracked result; need: beats in the section; gb: beats per bar.
+     Looks at every downbeat where the player is actually playing and scores how steady the beats are. */
+  function bestSection(res, need, gb) {
+    const beats = res.beats, P = res.period, on = res.onsets || [];
+    const nb = beats.length; if (!nb) return null;
+    const act = new Array(nb).fill(false); let j = 0;
+    for (let i = 0; i < nb; i++) { const a = beats[i] - 0.1 * P, b = beats[i] + 0.9 * P; while (j < on.length && on[j] < a) j++; let k = j; while (k < on.length && on[k] < b) { act[i] = true; break; } }
+    const off = ((res.downbeatOffset % gb) + gb) % gb;
+    let best = null, firstCand = -1;
+    for (let i = off; i + need < nb; i += gb) {
+      if (beats[i] < (res.firstOnset || 0) - 0.08) continue;
+      if (firstCand < 0) firstCand = i;
+      let a = 0; for (let k = i; k < i + need; k++) if (act[k]) a++;
+      const actFrac = a / need;
+      // local straight-line fit of beat times: residual = timing wobble, slope = local tempo
+      let sx = 0, sy = 0, sxx = 0, sxy = 0; const m = need + 1;
+      for (let k = 0; k < m; k++) { const y = beats[i + k]; sx += k; sy += y; sxx += k * k; sxy += k * y; }
+      const slope = (m * sxy - sx * sy) / (m * sxx - sx * sx), icpt = (sy - slope * sx) / m;
+      let r2 = 0; for (let k = 0; k < m; k++) { const d = beats[i + k] - (icpt + slope * k); r2 += d * d; }
+      const wobble = Math.sqrt(r2 / m) / P, drift = Math.abs(slope - P) / P;
+      const score = 2 * actFrac - 12 * wobble - 6 * drift - (i === firstCand ? 0.15 : 0) - (actFrac < 0.75 ? 2 : 0);
+      if (!best || score > best.score) best = { start: i, score, actFrac, wobbleMs: wobble * P * 1000, drift };
+    }
+    return best;
+  }
+
+  const api = { analyze, retrack, warp, bestSection, describe, features, _internals: { extract, estimateTempo, trackBeats, analyseSwing, analyseMeter, pickOnsets } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SDAnalysis = api;
 })(typeof self !== 'undefined' ? self : this);

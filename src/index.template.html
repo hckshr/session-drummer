@@ -15,11 +15,17 @@
 <main>
   <header><h1>Session <span>Drummer</span></h1><div class="tag">Play a part. Get a drummer.</div></header>
 
+  <div id="status" class="hide"><i></i><span id="stText"></span></div>
   <section id="listen" class="card">
-    <button id="rec" aria-label="Listen"><div class="dot"></div><div id="recLabel">Listen</div><small id="recSub">tap, then play</small></button>
-    <div class="meter"><i id="lvl"></i></div>
-    <p class="hint" id="hint">Tap <b>Listen</b> and play your part for <b>10 to 20 seconds</b>. Keep the phone a few feet from the amp or guitar. It stops by itself at 20 seconds.</p>
+    <button id="rec" class="off" aria-label="Record"><div class="dot"></div><div id="recLabel">Record</div><small id="recSub">tap, then just start playing</small></button>
+    <div class="meter"><i id="lvl"></i><b id="lvlFloor"></b></div>
+    <p class="hint" id="hint">Tap <b>Record</b> once, then play whenever you're ready. It starts recording on your first notes, without clipping them, and it stops by itself after about <b>3 seconds of quiet</b>, or at <b>60 seconds</b>. Then the mic turns off and your take stays put until you tap Record again.</p>
     <p class="warn hide" id="warn"></p>
+    <details class="set"><summary>Listening settings</summary>
+      <div class="row"><label>Start on</label><div class="seg" id="segSens"><button data-v="low">Loud notes</button><button data-v="normal">Normal</button><button data-v="high">Soft notes</button></div></div>
+      <div class="row"><label>Stop after</label><div class="seg" id="segStop"><button data-v="2">2 s quiet</button><button data-v="2.8">3 s</button><button data-v="4">4 s</button></div></div>
+      <p class="hint">If it starts on room noise or talking, pick "Loud notes". If it misses quiet fingerpicking, pick "Soft notes".</p>
+    </details>
     <button class="link" id="skip">Skip listening and pick drums by hand</button>
   </section>
 
@@ -31,6 +37,7 @@
     <div class="desc" id="hDesc"></div>
     <div class="wants" id="hWants"></div>
     <div class="conf" id="hConf"></div>
+    <div class="conf" id="hTake"></div>
     <div class="ctl">
       <div class="row"><label>Tempo</label>
         <button class="btn sm" data-t="-1">−</button><div class="tval" id="tVal">90</div><button class="btn sm" data-t="1">+</button>
@@ -43,7 +50,10 @@
         <div class="seg" id="segFeel"><button data-f="straight">Straight</button><button data-f="swing">Swung</button></div>
       </div>
       <div class="row guitarOnly"><label>Mix</label><span class="tag">Guitar</span><input type="range" id="bal" min="0" max="100" value="50"><span class="tag">Drums</span></div>
+      <div class="row guitarOnly"><label>Preview</label><div class="seg" id="segPrev"><button data-v="best">Best bars</button><button data-v="whole">Whole take</button></div></div>
+      <div class="row guitarOnly" id="ploopRow"><label class="switch"><input type="checkbox" id="ploop" checked> Loop the best bars</label></div>
       <div class="row guitarOnly"><label class="switch"><input type="checkbox" id="snap" checked> Snap my playing to the drum grid</label></div>
+      <div class="conf guitarOnly" id="hSection"></div>
     </div>
   </section>
 
@@ -55,7 +65,7 @@
     <div id="turns"></div>
     <div class="row" style="justify-content:center;margin-top:16px">
       <button class="btn" id="more">More ideas</button>
-      <button class="btn" id="again">Listen again</button>
+      <button class="btn" id="again">New take</button>
     </div>
   </section>
 

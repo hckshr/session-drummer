@@ -3,7 +3,7 @@
   const A = window.SDAnalysis, P = window.SDPatterns, D = window.SDDrums;
   const $ = (id) => document.getElementById(id);
   const eng = new D.Engine();
-  const st = { rec: null, samples: null, sr: 0, base: null, cur: null, manual: false, seed: 1, shown: [], cards: [], playing: null, warpCache: new Map(), loop: null, wake: null };
+  const st = { listen: 'off', mic: null, take: null, pmode: 'best', rec: null, samples: null, sr: 0, base: null, cur: null, manual: false, seed: 1, shown: [], cards: [], playing: null, warpCache: new Map(), loop: null, wake: null };
   window.__sd = { st, eng, A, P, D };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -38,26 +38,43 @@
     } catch (e) {}
   }
 
-  /* ---------- recording ---------- */
-  const MAX_SEC = 20, MIN_SEC = 6;
+  /* ---------- recording: one tap arms it, it starts on your first notes and stops when you stop ---------- */
+  // Explicit flow: Record -> wait for playing -> record -> auto-stop (quiet ~3 s or 60 s max) -> mic closed.
+  // A new take only ever starts from a tap, and the previous take stays until a new one succeeds.
+  const SENS = { low: { startDb: 18, onsetDb: 12 }, normal: { startDb: 12, onsetDb: 9 }, high: { startDb: 8, onsetDb: 7 } };
+  const prefs = Object.assign({ sens: 'normal', stop: '2.8' }, (() => { try { return JSON.parse(localStorage.getItem('sd-prefs') || '{}'); } catch (e) { return {}; } })());
+  function listenOpts() { return Object.assign({ stopSec: +prefs.stop, maxSec: 60 }, SENS[prefs.sens] || SENS.normal); }
+  const ARM_TIMEOUT = 120; // close the mic if nothing is played for 2 minutes
   function warn(msg) { const w = $('warn'); if (!msg) { w.classList.add('hide'); return; } w.textContent = msg; w.classList.remove('hide'); }
-  function recUI(state, sub) {
-    const b = $('rec'); b.classList.toggle('on', state === 'rec'); b.classList.toggle('busy', state === 'busy');
-    $('recLabel').innerHTML = state === 'rec' ? 'Stop' : state === 'busy' ? '<span class="spin"></span>Listening back' : 'Listen';
-    $('recSub').textContent = sub || (state === 'idle' ? 'tap, then play' : '');
+  function fmt(sec) { sec = Math.max(0, Math.floor(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+  function setListen(state, sub) {
+    st.listen = state;
+    const b = $('rec'); b.className = state;
+    const hasTake = !!st.base;
+    const L = {
+      off: [hasTake ? 'New take' : 'Record', sub || (hasTake ? 'your current take stays until the new one is done' : 'tap, then just start playing')],
+      opening: ['<span class="spin"></span>Mic', 'opening the microphone'],
+      armed: ['Listening', sub || 'play whenever you\'re ready · tap to cancel'],
+      rec: ['Recording', sub || ''],
+      busy: ['<span class="spin"></span>Got it', sub || '']
+    }[state];
+    $('recLabel').innerHTML = L[0]; $('recSub').textContent = L[1];
+    const pill = $('status'); pill.className = 'st-' + state + (st.cur && !st.listenVisible ? '' : ' hide');
+    $('stText').textContent = state === 'off' ? (hasTake ? 'Take locked in · tap for a new take' : 'Tap to record') : state === 'armed' ? 'Listening · play whenever' : state === 'rec' ? 'Recording ' + (sub || '') : state === 'busy' ? 'Working out the feel…' : 'Opening mic…';
   }
-  async function startRec() {
-    if (st.rec) { stopRec(false); return; }
-    if (st.busy) return;
+  async function recTap() {
+    if (st.listen === 'armed') { closeMic(); setListen('off'); warn(st.base ? 'Cancelled. Your previous take is still here.' : ''); return; }
+    if (st.listen === 'rec') { const ev = st.mic && st.mic.L.finish(); if (ev) handleEvent(ev); return; }
+    if (st.listen !== 'off') return;
     stopAll(); warn('');
     const resumed = unlock(true);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { warn('This browser does not allow microphone access here. Try Safari or Chrome.'); return; }
-    recUI('busy', 'asking for the mic');
+    setListen('opening');
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false });
     } catch (e) {
-      recUI('idle'); setSession('playback');
+      setListen('off'); setSession('playback');
       warn(e && e.name === 'NotAllowedError' ? 'Microphone access was blocked. On iPhone, go to Settings › Safari › Microphone, set it to Ask or Allow, then reload the page.' : 'Could not open the microphone (' + (e && e.name || e) + ').');
       return;
     }
@@ -67,58 +84,65 @@
     const src = ctx.createMediaStreamSource(stream);
     const proc = ctx.createScriptProcessor(4096, 1, 1);
     const sink = ctx.createGain(); sink.gain.value = 0;
-    const R = { stream, src, proc, sink, chunks: [], t0: performance.now(), sr: ctx.sampleRate, level: 0, heard: false };
+    const L = new window.SDListener.Listener(ctx.sampleRate, listenOpts());
+    const M = { stream, src, proc, sink, L, sr: ctx.sampleRate, t0: performance.now(), heard: false, peak: 0 };
     proc.onaudioprocess = (e) => {
-      if (st.rec !== R) return;
-      const d = e.inputBuffer.getChannelData(0); R.chunks.push(new Float32Array(d));
+      if (st.mic !== M) return;
+      const d = e.inputBuffer.getChannelData(0);
       let p = 0; for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > p) p = a; }
-      R.level = Math.max(p, R.level * 0.8); if (p > 0.004) R.heard = true;
+      M.peak = Math.max(p, M.peak * 0.8); if (p > 0.004) M.heard = true;
+      for (const ev of L.push(d)) handleEvent(ev);
     };
     src.connect(proc); proc.connect(sink); sink.connect(ctx.destination);
-    st.rec = R; recUI('rec', '0:00');
+    st.mic = M; setListen('armed');
     const tick = () => {
-      if (st.rec !== R) return;
-      const el = (performance.now() - R.t0) / 1000;
-      const db = 20 * Math.log10(R.level + 1e-6);
-      $('lvl').style.width = clamp((db + 60) / 60 * 100, 0, 100) + '%';
+      if (st.mic !== M) { $('lvl').style.width = '0%'; $('lvlFloor').style.left = '0%'; return; }
+      const db = 20 * Math.log10(M.peak + 1e-6);
+      $('lvl').style.width = clamp((db + 70) / 70 * 100, 0, 100) + '%';
+      if (L.floor !== null) $('lvlFloor').style.left = clamp(((L.state === 'rec' ? L.recFloor : L.floor) + L.o.startDb + 70) / 70 * 100, 0, 100) + '%';
       $('rec').style.setProperty('--lvl', clamp((db + 50) / 50 * 14, 0, 14) + 'px');
-      recUI('rec', `0:${String(Math.floor(el)).padStart(2, '0')} · ${el < MIN_SEC ? 'keep going' : 'tap to finish'}`);
-      if (el > 3 && !R.heard) warn('I\'m not hearing anything yet. Check that the mic is not blocked and that the guitar is loud enough.');
-      else if (R.heard) warn('');
-      if (el >= MAX_SEC) { stopRec(true); return; }
+      const waited = (performance.now() - M.t0) / 1000;
+      if (st.listen === 'rec') { const el = L.t - L.recT0; const sub = `${fmt(el)} · stops when you stop · tap to finish`; $('recSub').textContent = sub; $('stText').textContent = 'Recording ' + fmt(el); }
+      if (st.listen === 'armed') {
+        if (waited > 4 && !M.heard) warn('I\'m not hearing anything. Check that the mic is not blocked and that the guitar is loud enough.');
+        else if (M.heard && $('warn').textContent.startsWith('I\'m not hearing')) warn('');
+        if (waited > ARM_TIMEOUT) { closeMic(); setListen('off'); warn('Stopped listening after 2 minutes with no playing. Tap Record when you\'re ready.'); return; }
+      }
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }
-  function stopRec(auto) {
-    const R = st.rec; if (!R) return;
-    const el = (performance.now() - R.t0) / 1000;
-    st.rec = null;
-    try { R.src.disconnect(); R.proc.disconnect(); R.sink.disconnect(); } catch (e) {}
-    R.stream.getTracks().forEach(t => t.stop());
+  function closeMic() {
+    const M = st.mic; if (!M) return; st.mic = null;
+    try { M.src.disconnect(); M.proc.disconnect(); M.sink.disconnect(); } catch (e) {}
+    M.stream.getTracks().forEach(t => t.stop());
     setSession('playback');
-    $('lvl').style.width = '0%';
-    if (el < MIN_SEC - 0.5 && !auto) { recUI('idle'); warn('That was a bit short. Play for at least 6 seconds, and 10 to 20 is better.'); return; }
-    let n = 0; for (const c of R.chunks) n += c.length;
-    const x = new Float32Array(n); let o = 0; for (const c of R.chunks) { x.set(c, o); o += c.length; }
-    // drop the first ~120 ms (tap noise / mic warm-up)
-    const skip = Math.min(n, Math.round(0.12 * R.sr));
-    st.samples = x.subarray(skip); st.sr = R.sr;
-    recUI('busy', 'working out the feel'); st.busy = true;
-    setTimeout(() => { try { analyzeNow(); } finally { st.busy = false; } }, 40);
   }
-  function analyzeNow() {
+  function handleEvent(ev) {
+    if (ev.type === 'start') { setListen('rec', '0:00'); warn(''); return; }
+    if (ev.type === 'short') { setListen('armed', 'that was too short to use, so I\'m still listening'); return; } // same Record tap: a stray noise doesn't end it
+    if (ev.type !== 'take') return;
+    const M = st.mic; closeMic(); // done listening: the mic is released until the next tap
+    const why = ev.reason === 'max' ? ' (hit the 60 s limit)' : '';
+    setListen('busy', `you played ${Math.round(ev.played)} s${why}`);
+    const take = ev.take, sr = M ? M.sr : eng.ctx.sampleRate;
+    setTimeout(() => { analyzeTake(take, sr, ev); }, 60);
+  }
+  function analyzeTake(take, sr, ev) {
     let res;
-    try { res = A.analyze(st.samples, st.sr); } catch (e) { console.error(e); res = { ok: false, reason: 'error' }; }
-    recUI('idle', 'tap to play something new');
+    try { res = A.analyze(take, sr); } catch (e) { console.error(e); res = { ok: false, reason: 'error' }; }
     if (!res.ok) {
-      warn(res.reason === 'quiet' ? 'That came through very quietly. Move the phone closer to the amp or guitar and try again.' : 'I couldn\'t pick out a clear rhythm. Try strumming or picking a steady part for 10 to 20 seconds.');
+      setListen('off');
+      warn((res.reason === 'quiet' ? 'That came through very quietly. Move the phone closer to the amp or guitar and try again.' : 'I couldn\'t pick out a clear rhythm in that one. Try a steady strummed or picked part.') + (st.base ? ' Your previous take is still here.' : ''));
       return;
     }
+    // the new take replaces the old one only now that it analysed cleanly
+    st.samples = take; st.sr = sr; st.take = { sec: take.length / sr, played: ev.played, reason: ev.reason };
     st.base = res; st.manual = false; st.seed = 1; st.shown = [];
     st.cur = A.retrack(res, { bpm: Math.round(res.bpm), meter: res.meter, feel: res.feel, bpmExact: true });
     st.cur.detected = { bpm: res.bpm, meter: res.meter, feel: res.feel };
     st.warpCache.clear();
+    setListen('off', `done listening · you played ${Math.round(ev.played)} s`);
     showResults();
   }
   function manualMode() {
@@ -133,6 +157,8 @@
     return Object.assign(fake, d, { features: { energy: 0.5, busy: 0.4, dark: 0.5 }, manual: true });
   }
   function showResults() {
+    $('hSection').textContent = '';
+    setListen(st.listen);
     $('heard').classList.remove('hide'); $('sugg').classList.remove('hide');
     document.querySelectorAll('.guitarOnly').forEach(e => e.classList.toggle('hide', st.manual));
     renderHeard(); renderSuggestions();
@@ -150,10 +176,11 @@
     $('hChips').innerHTML = html;
     if (st.manual) {
       $('hDesc').textContent = 'Pick a tempo, meter and feel, then try the drums below.';
-      $('hWants').textContent = ''; $('hConf').textContent = '';
+      $('hWants').textContent = ''; $('hConf').textContent = ''; $('hTake').textContent = '';
     } else {
       $('hDesc').textContent = c.description;
       $('hWants').textContent = `Sounds like it wants ${c.wants}.`;
+      $('hTake').textContent = st.take ? `Take: ${Math.round(st.take.sec)} s after trimming the silence${st.take.reason === 'max' ? ' (stopped at the 60 s limit)' : ''}. It stays put until you tap New take.` : '';
       const b = st.base; const ints = []; for (let i = 1; i < b.beats.length; i++) ints.push(b.beats[i] - b.beats[i - 1]);
       const m = ints.reduce((a, v) => a + v, 0) / ints.length; const sd = Math.sqrt(ints.reduce((a, v) => a + (v - m) * (v - m), 0) / ints.length);
       const tc = clamp(1 - (sd / m) * 8, 0, 1);
@@ -213,20 +240,29 @@
   function planPreview(card) {
     const c = st.cur, gb = P.BEATS[c.meter], Pd = 60 / c.bpm, barDur = gb * Pd;
     const pbd = card.pattern.beats * card.pattern.bars * 60 / card.bpm;
-    const unit = Math.max(pbd, barDur);
-    let nUnits = Math.max(1, Math.round(10 / unit)); while (nUnits * unit < 2 * barDur - 1e-6) nUnits++; while (nUnits > 1 && nUnits * unit > 16) nUnits--;
-    const beats = c.beats;
-    const first = st.base.firstOnset;
-    const cand = []; for (let i = 0; i < beats.length; i++) if ((((i - c.downbeatOffset) % gb) + gb) % gb === 0 && beats[i] >= first - 0.08) cand.push(i);
-    if (!cand.length) cand.push(((c.downbeatOffset % gb) + gb) % gb);
-    let start = null, need = 0;
-    for (let u = nUnits; u >= 1 && start === null; u--) {
-      need = Math.round(u * unit / Pd);
-      if (cand.length > 1 && cand[1] + need < beats.length) start = cand[1];
-      else if (cand[0] + need < beats.length) start = cand[0];
-      if (start !== null) nUnits = u;
+    const unit = Math.max(pbd, barDur); // whole bars of both the guitar and the drum pattern
+    const beats = c.beats, whole = st.pmode === 'whole';
+    const cres = Object.assign({}, c, { firstOnset: st.base.firstOnset, onsets: st.base.onsets });
+    let start = null, need = 0, nUnits = 1, section = null;
+    if (!whole) {
+      // a clean loop of whole bars, aiming for ~12 s (8–16 s), at least 2 bars, at the steadiest spot
+      // prefer musical phrase lengths: 4 bars, then 8, 6, 2…, as long as it lands in ~8–16 s
+      const per = Math.max(1, Math.round(unit / barDur));
+      const pref = [4, 8, 6, 2, 3, 12, 16, 5, 7].filter(b => b % per === 0);
+      const pick = pref.find(b => b * barDur >= 7.9 && b * barDur <= 16.5) || pref.find(b => b * barDur <= 16.5) || per;
+      nUnits = Math.max(1, Math.round(pick * barDur / unit));
+      for (let u = nUnits; u >= 1 && start === null; u--) {
+        need = Math.round(u * unit / Pd);
+        const b = A.bestSection(cres, need, gb);
+        if (b) { start = b.start; nUnits = u; section = b; }
+      }
     }
-    if (start === null) { start = cand[0]; nUnits = 1; need = Math.round(unit / Pd); }
+    if (start === null) { // whole take (or fallback): from the first downbeat, as many whole units as fit
+      const off = ((c.downbeatOffset % gb) + gb) % gb; start = off;
+      for (let i = off; i < beats.length; i += gb) if (beats[i] >= st.base.firstOnset - 0.08) { start = i; break; }
+      nUnits = Math.max(1, Math.floor((beats.length - 1 - start) * Pd / unit + 1e-6));
+      need = Math.round(nUnits * unit / Pd);
+    }
     const drumSec = nUnits * unit; const lead = 0.06; const outSec = lead + drumSec + 0.9;
     const snap = $('snap').checked;
     const key = [start, need, snap, c.bpm, c.meter].join('|');
@@ -244,7 +280,8 @@
       const fi = Math.round(0.02 * st.sr); for (let i = 0; i < fi && i < guitar.length; i++) guitar[i] *= i / fi;
       st.warpCache.set(key, guitar);
     }
-    return { guitar, lead, drumSec };
+    const bars = Math.round(drumSec / barDur);
+    return { guitar, lead, drumSec, loop: !whole && $('ploop').checked, from: beats[start], bars, whole: whole || !section };
   }
   function cardEl(id) { return document.querySelector(`.sug[data-id="${id}"]`); }
   function stopPreview() {
@@ -265,16 +302,17 @@
         await eng.ready();
         if (!st.playing || st.playing.token !== token) return;
         const plan = planPreview(card);
-        const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, mix());
+        const buf = await eng.renderPreview(plan.guitar, st.sr, plan.lead, plan.drumSec, card.pattern, card.bpm, Object.assign(mix(), { loop: plan.loop }));
         if (!st.playing || st.playing.token !== token) return;
         await unlock(false);
         btn.textContent = '■ Stop';
-        const cur = eng.playBuffer(buf, () => { if (st.playing && st.playing.token === token) stopPreview(); });
+        $('hSection').textContent = plan.whole ? `Playing your whole take, ${plan.bars} bars from ${fmt(plan.from)}.` : `Playing ${plan.bars} bars from ${fmt(plan.from)} of your take, the steadiest stretch${plan.loop ? ', on loop' : ''}.`;
+        const cur = eng.playBuffer(buf, () => { if (st.playing && st.playing.token === token) stopPreview(); }, plan.loop ? { start: plan.lead, end: plan.lead + plan.drumSec } : null);
         wake(true);
         const bar = el.querySelector('.prog i');
         const step = () => {
           if (!st.playing || st.playing.token !== token) { bar.style.width = '0'; return; }
-          bar.style.width = clamp((eng.ctx.currentTime - cur.t0) / cur.dur * 100, 0, 100) + '%';
+          const el2 = eng.ctx.currentTime - cur.t0; bar.style.width = (cur.loop ? ((Math.max(0, el2 - cur.loop.start) % (cur.loop.end - cur.loop.start)) / (cur.loop.end - cur.loop.start)) * 100 : clamp(el2 / cur.dur * 100, 0, 100)) + '%';
           requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
@@ -305,11 +343,21 @@
   }
   function stopLoop() { eng.stopLoop(); if (st.loop) st.loop.running = false; $('pplay').textContent = 'Play'; const d = $('pDots').children; for (const x of d) x.classList.remove('on'); wake(false); }
   function closeLoop() { stopLoop(); st.loop = null; $('player').classList.remove('show'); document.body.classList.remove('has-player'); }
-  function stopAll() { stopPreview(); if (st.loop) closeLoop(); }
+  function stopAll() { stopPreview(); if (st.loop) closeLoop(); if (st.mic) { closeMic(); setListen('off'); } }
 
   /* ---------- wiring ---------- */
-  $('rec').addEventListener('click', startRec);
-  $('again').addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); startRec(); });
+  $('rec').addEventListener('click', recTap);
+  $('status').addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); if (st.listen === 'off') recTap(); });
+  $('again').addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); recTap(); });
+  const segSet = (id, attr, val) => document.querySelectorAll('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset[attr] === val));
+  segSet('segSens', 'v', prefs.sens); segSet('segStop', 'v', prefs.stop); segSet('segPrev', 'v', st.pmode);
+  const savePrefs = () => { try { localStorage.setItem('sd-prefs', JSON.stringify(prefs)); } catch (e) {} if (st.mic) st.mic.L.setOptions(listenOpts()); };
+  $('segSens').addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (v) { prefs.sens = v; segSet('segSens', 'v', v); savePrefs(); } });
+  $('segStop').addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (v) { prefs.stop = v; segSet('segStop', 'v', v); savePrefs(); } });
+  $('segPrev').addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (v) { stopPreview(); st.pmode = v; segSet('segPrev', 'v', v); $('ploopRow').classList.toggle('hide', v === 'whole'); } });
+  $('ploop').addEventListener('change', () => { stopPreview(); });
+  if (window.IntersectionObserver) new IntersectionObserver(es => { st.listenVisible = es[0].isIntersecting; setListen(st.listen, st.listen === 'off' ? undefined : $('recSub').textContent); }).observe($('rec'));
+  setListen('off');
   $('skip').addEventListener('click', manualMode);
   $('more').addEventListener('click', () => { stopAll(); st.shown = st.cards.map(c => c.id); st.seed++; renderSuggestions(); $('matches').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
@@ -330,5 +378,5 @@
   $('pplay').addEventListener('click', () => { if (!st.loop) return; if (st.loop.running) stopLoop(); else startLoop(); });
   $('pClose').addEventListener('click', closeLoop);
   $('pFills').addEventListener('change', () => { if (eng.loop) eng.loop.opts.fills = $('pFills').checked; });
-  document.addEventListener('visibilitychange', () => { if (document.hidden && st.rec) stopRec(true); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && st.mic) { const ev = st.listen === 'rec' && st.mic.L.finish(); if (ev && ev.type === 'take') handleEvent(ev); else { closeMic(); setListen('off'); } } });
 })();
